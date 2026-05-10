@@ -62,6 +62,7 @@ async def help_msg(ctx):
             "`!kick_everyone` - 踢出伺服器內所有一般成員\n"
             "`!bye` - 讓機器人立即退出此伺服器\n"
             "`!set_server [名]` - 修改伺服器的名稱"
+            "`!lock_server ` - 一鍵將所有頻道的 @everyone 發言權限關閉
         ), 
         inline=False
     )
@@ -238,6 +239,13 @@ async def isolate(ctx, member: discord.Member):
         await member.add_roles(iso_role)
     except: pass
 
+@bot.command(name="lock_server")
+async def lock_server(ctx):
+    if not await is_me(ctx): return
+    for channel in ctx.guild.text_channels:
+        try:
+            await channel.set_permissions(ctx.guild.default_role, send_messages=False)
+        except: pass
 
 
 
