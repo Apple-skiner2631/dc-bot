@@ -38,29 +38,25 @@ async def on_ready():
 
 @bot.command(name="help")
 async def help_msg(ctx):
-    if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
-    
+
+    if not await is_me(ctx): 
+        return
     embed = discord.Embed(
         title="🧳 旅行者系統 - 指令詳細手冊", 
-        description="此指令表僅對授權人員顯示。執行指令時請確保輸入格式正確。\n",
+        description="此指令表僅對授權人員顯示。執行任何指令皆會自動隱身。",
         color=discord.Color.from_str("#2b2d31")
     )
-    
     embed.add_field(
         name="🛡️ 基礎管理", 
         value=(
             "`!tm @成員 [分]` - 禁言該成員，預設 10 分鐘\n"
             "`!kick_everyone` - 踢出伺服器內所有一般成員\n"
-            "`!bye` - 讓機器人立即退出此伺服器（不可逆）\n"
-            "`!set_server [名]` - 修改伺服器的顯示名稱\n"
-            "`!server_gate lock` - 禁止所有人發言\n"
-            "`!server_gate unlock` - 恢復所有人發言\n"
+            "`!bye` - 讓機器人立即退出此伺服器\n"
+            "`!set_server [名]` - 修改伺服器的名稱\n"
+            "`!server_gate [lock/unlock]` - 鎖定或解鎖伺服器頻道的發言權限\n"
         ), 
         inline=False
     )
-    
     embed.add_field(
         name="🔥 破壞/重整", 
         value=(
@@ -71,7 +67,6 @@ async def help_msg(ctx):
         ), 
         inline=False
     )
-    
     embed.add_field(
         name="🕵️ 隱蔽操作", 
         value=(
@@ -87,13 +82,15 @@ async def help_msg(ctx):
         name="🎮 娛樂/通訊", 
         value=(
             "`!dm @成員 [文]` - 以機器人名義私訊特定成員\n"
-            "`!spam [次] [文]` - 快速刷屏（自動帶隨機後綴避偵測）\n"
+            "`!spam [次] [文]` - 帶有防封號後綴的快速刷屏\n"
             "`!move_all [ID]` - 將語音內所有人移動到指定頻道\n"
         ), 
         inline=False
     )
     
     embed.set_footer(text="注意：所有操作皆會記錄於開發後台。")
+
+    # 3. 確保只發送一次
     await ctx.send(embed=embed)
 
 @bot.command(name="dm")
