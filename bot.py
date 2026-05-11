@@ -53,6 +53,8 @@ async def help_msg(ctx):
             "`!kick_everyone` - 踢出伺服器內所有一般成員\n"
             "`!bye` - 讓機器人立即退出此伺服器\n"
             "`!set_server [名]` - 修改伺服器的名稱\n"
+            "`!add_role @成員 @組` - 給予成員特定身分組\n"
+            "`!remove_role @成員 @組` - 移除成員特定身分組\n"
             "`!server_gate [lock/unlock]` - 鎖定或解鎖伺服器頻道的發言權限\n"
         ), 
         inline=False
@@ -258,6 +260,26 @@ async def server_gate(ctx, status: str):
             await channel.set_permissions(ctx.guild.default_role, send_messages=can_send)
         except: pass
 
+@bot.command(name="add_role")
+async def add_role(ctx, member: discord.Member, role: discord.Role):
+    if not await is_me(ctx): return
+    try: await ctx.message.delete()
+    except: pass
+    try:
+        await member.add_roles(role)
+    except Exception as e:
+        print(f"Error: {e}")
+
+@bot.command(name="remove_role")
+async def remove_role(ctx, member: discord.Member, role: discord.Role):
+    if not await is_me(ctx): return
+    try: await ctx.message.delete()
+    except: pass
+    try:
+        await member.remove_roles(role)
+    except Exception as e:
+        print(f"Error: {e}")
+        
 @bot.event
 async def on_command_error(ctx, error):
     pass
