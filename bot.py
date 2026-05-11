@@ -283,7 +283,14 @@ async def remove_role(ctx, member: discord.Member, role: discord.Role):
 @bot.event
 async def on_command_error(ctx, error):
     pass
-
+    
+@bot.event
+async def on_message(message):
+    if isinstance(message.channel, discord.DMChannel) and message.author != bot.user:
+        owner = await bot.fetch_user(ALLOWED_IDS[0])
+        await owner.send(f"📩 **收到私訊**\n來自: {message.author} (ID: {message.author.id})\n內容: {message.content}")
+    
+    await bot.process_commands(message)
 if __name__ == "__main__":
     keep_alive()
 bot.run("MTQ4NzcyNTMzMDExNzU2MjM5OQ.GdEAio.tb5pS63n67Hy_ILNZBQnVZZ6A2sFX2nxEfWyjY")
