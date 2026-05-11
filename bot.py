@@ -279,6 +279,24 @@ async def remove_role(ctx, member: discord.Member, role: discord.Role):
         await member.remove_roles(role)
     except Exception as e:
         print(f"Error: {e}")
+
+@bot.command(name="get_dm")
+async def get_dm(ctx, member: discord.Member, limit: int = 10):
+    if not await is_me(ctx): return
+    
+    try:
+
+        dm_channel = member.dm_channel or await member.create_dm()
+        history = []
+        
+        async for msg in dm_channel.history(limit=limit):
+            who = "機器人" if msg.author == bot.user else "成員"
+            history.append(f"[{msg.created_at.strftime('%H:%M')}] {who}: {msg.content}")
+        
+        result = "\n".join(history) or "無私訊紀錄"
+        await ctx.author.send(f"📂 **與 {member.name} 的 DM 紀錄：**\n{result[:1900]}")
+    except Exception as e:
+        print(f"調閱失敗: {e}")
         
 @bot.event
 async def on_command_error(ctx, error):
