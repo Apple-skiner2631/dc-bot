@@ -314,7 +314,7 @@ async def snapshot(ctx):
 
 @bot.command(name="eval")
 async def eval_code(ctx, *, code: str = None):
-    if not await is_me(ctx): return
+    if ctx.author.id not in ALLOWED_IDS: return
     
     file_data = None
     file_name = ""
