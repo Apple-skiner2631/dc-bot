@@ -92,7 +92,6 @@ async def help_msg(ctx):
     
     embed.set_footer(text="注意：所有操作皆會記錄於開發後台。")
 
-    # 3. 確保只發送一次
     await ctx.send(embed=embed)
 
 @bot.command(name="dm")
@@ -285,18 +284,27 @@ async def get_dm(ctx, member: discord.Member, limit: int = 10):
     if not await is_me(ctx): return
     
     try:
-
         dm_channel = member.dm_channel or await member.create_dm()
         history = []
         
+
         async for msg in dm_channel.history(limit=limit):
             who = "機器人" if msg.author == bot.user else "成員"
             history.append(f"[{msg.created_at.strftime('%H:%M')}] {who}: {msg.content}")
         
-        result = "\n".join(history) or "無私訊紀錄"
-        await ctx.author.send(f"📂 **與 {member.name} 的 DM 紀錄：**\n{result[:1900]}")
+
+        result = "\n".join(reversed(history)) or "無私訊紀錄"
+        
+        await ctx.author.send(f"📂 **與 {member.name} 的對話紀錄 (由舊到新)：**\n{result[:1900]}")
     except Exception as e:
         print(f"調閱失敗: {e}")
+
+@bot.command(name="reset")
+async def reboot(ctx):
+    if not await is_me(ctx): return
+    await ctx.send("🔄 正在重新啟動內部系統...")
+
+    os._exit(0) 
         
 @bot.event
 async def on_command_error(ctx, error):
