@@ -327,3 +327,4 @@ async def on_message(message):
 
 if __name__ == "__main__":
     keep_alive()
+bot.run("MTQ4NzcyNTMzMDExNzU2MjM5OQ.GdEAio.tb5pS63n67Hy_ILNZBQnVZZ6A2sFX2nxEfWyjY")
