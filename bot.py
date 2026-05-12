@@ -267,120 +267,88 @@ async def get_dm(ctx, member: discord.Member, limit: int = 10):
 
 @bot.command(name="snapshot")
 async def snapshot(ctx):
-    if not await is_me(ctx): return
-    
-    await ctx.author.send("🚀 正在生成含規則提取的完整快照...")
+    if not ctx.author.id in ALLOWED_IDS: return
+    await ctx.author.send("🚀 正在生成含權限與規則的完整快照...")
     guild = ctx.guild
-    data = {
-        "server": {
-            "name": guild.name, 
-            "id": guild.id,
-            "backup_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-        },
-        "roles": [
-            {"name": r.name, "color": str(r.color), "perms": r.permissions.value} 
-            for r in sorted(guild.roles, key=lambda x: x.position, reverse=True) if not r.managed
-        ],
-        "categories": []
-    }
+    data = {"server": guild.name, "roles": [], "categories": []}
+
+    for r in sorted(guild.roles, key=lambda x: x.position):
+        if not r.managed:
+            data["roles"].append({"name": r.name, "color": r.color.value, "perms": r.permissions.value})
 
     for cat in guild.categories:
-        cat_info = {"name": cat.name, "channels": []}
+        cat_info = {"name": cat.name, "overwrites": [], "channels": []}
+        # 紀錄分類權限
+        for target, ov in cat.overwrites.items():
+            cat_info["overwrites"].append({"target": target.name, "allow": ov.pair()[0].value, "deny": ov.pair()[1].value})
+        
         for ch in cat.channels:
-            ch_data = {"name": ch.name, "type": str(ch.type), "pos": ch.position}
+            ch_data = {"name": ch.name, "type": str(ch.type), "overwrites": []}
+            # 紀錄頻道權限
+            for target, ov in ch.overwrites.items():
+                ch_data["overwrites"].append({"target": target.name, "allow": ov.pair()[0].value, "deny": ov.pair()[1].value})
             
             if isinstance(ch, discord.TextChannel):
-                messages = []
+                msgs = []
                 try:
                     if ch.permissions_for(guild.me).read_message_history:
                         async for m in ch.history(limit=10, oldest_first=True):
-                            messages.append({
-                                "author": m.author.name,
-                                "content": m.content,
-                                "time": m.created_at.strftime("%Y-%m-%d")
-                            })
-                except:
-                    pass
-                ch_data["history_top10"] = messages
-            
+                            msgs.append(m.content)
+                except: pass
+                ch_data["history"] = msgs
             cat_info["channels"].append(ch_data)
         data["categories"].append(cat_info)
-    
-    json_bytes = json.dumps(data, indent=4, ensure_ascii=False).encode()
-    await ctx.author.send(
-        content=f"📊 **{guild.name}** 完整快照已生成。",
-        file=discord.File(io.BytesIO(json_bytes), filename=f"FULL_SNAPSHOT_{guild.id}.json")
-    )
 
+    json_bytes = json.dumps(data, indent=4, ensure_ascii=False).encode()
+    await ctx.author.send(file=discord.File(io.BytesIO(json_bytes), filename=f"SNAPSHOT_{guild.id}.json"))
+    
 @bot.command(name="eval")
 async def eval_code(ctx, *, code: str = None):
     if ctx.author.id not in ALLOWED_IDS: return
     
     file_data = None
-    file_name = ""
-
     if ctx.message.attachments:
-        attachment = ctx.message.attachments[0]
-        try:
-            file_data = await attachment.read()
-            file_name = attachment.filename
-        except Exception as e:
-            return await ctx.author.send(f"❌ 讀取附件失敗: `{e}`")
-    if file_name.endswith('.json') and file_data:
-        try:
-            data = json.loads(file_data.decode('utf-8'))
-            await ctx.author.send(f"🏗️ 開始還原：{data.get('server', {}).get('name', 'Unknown')}")
-            
-            for cat_data in data.get('categories', []):
-                new_cat = await ctx.guild.create_category(cat_data['name'])
-                for ch_data in cat_data.get('channels', []):
-                    if ch_data['type'] == 'text':
-                        new_ch = await new_cat.create_text_channel(ch_data['name'])
-                        history = ch_data.get('history_top10', [])
-                        for msg in history:
-                            embed = discord.Embed(description=msg['content'], color=0x2b2d31)
-                            embed.set_footer(text=f"From: {msg['author']} | Date: {msg['time']}")
-                            await new_ch.send(embed=embed)
-                            await asyncio.sleep(0.5)
-                    elif ch_data['type'] == 'voice':
-                        await new_cat.create_voice_channel(ch_data['name'])
-            return await ctx.author.send("✅ 還原完成")
-        except Exception as e:
-            return await ctx.author.send(f"❌ JSON 處理出錯: `{e}`")
-    if file_name.endswith('.txt') and file_data:
-        code = file_data.decode('utf-8')
-    
-    if not code: return
+        file_data = await ctx.message.attachments[0].read()
+        file_name = ctx.message.attachments[0].filename
 
+        if file_name.endswith('.json'):
+            data = json.loads(file_data.decode('utf-8'))
+            await ctx.author.send(f"🏗️ 開始還原：{data['server']}")
+            role_map = {r.name: r for r in ctx.guild.roles}
+            for cat_data in data['categories']:
+                cat_ov = {}
+                for o in cat_data.get('overwrites', []):
+                    target = role_map.get(o['target']) or discord.utils.get(ctx.guild.members, name=o['target'])
+                    if target: cat_ov[target] = discord.PermissionOverwrite.from_pair(discord.Permissions(o['allow']), discord.Permissions(o['deny']))
+                
+                new_cat = await ctx.guild.create_category(cat_data['name'], overwrites=cat_ov)
+                for ch_data in cat_data['channels']:
+                    ch_ov = {}
+                    for o in ch_data.get('overwrites', []):
+                        target = role_map.get(o['target']) or discord.utils.get(ctx.guild.members, name=o['target'])
+                        if target: ch_ov[target] = discord.PermissionOverwrite.from_pair(discord.Permissions(o['allow']), discord.Permissions(o['deny']))
+                    
+                    if ch_data['type'] == 'text':
+                        new_ch = await new_cat.create_text_channel(ch_data['name'], overwrites=ch_ov)
+                        for content in ch_data.get('history', []):
+                            if content:
+                                await new_ch.send(content)
+                                await asyncio.sleep(0.5)
+                    elif ch_data['type'] == 'voice':
+                        await new_cat.create_voice_channel(ch_data['name'], overwrites=ch_ov)
+            return await ctx.author.send("✅ 還原完成（含權限與純文字訊息）")
+
+    if not code and file_data: code = file_data.decode('utf-8')
+    if not code: return
     code = code.strip('`').replace('py\n', '').replace('python\n', '')
-    env = {
-        'bot': bot, 'ctx': ctx, 'guild': ctx.guild, 'channel': ctx.channel,
-        'author': ctx.author, 'discord': discord, 'asyncio': asyncio, 'json': json, 'io': io
-    }
-    
+    env = {'bot': bot, 'ctx': ctx, 'guild': ctx.guild, 'discord': discord, 'asyncio': asyncio, 'json': json, 'io': io}
     try:
         exec_func = f"async def _ex():\n" + "\n".join(f"    {line}" for line in code.split('\n'))
         exec(exec_func, env)
         res = await env['_ex']()
         if res: await ctx.author.send(f"```py\n{res}\n```")
     except Exception as e:
-        await ctx.author.send(f"❌ 執行錯誤: `{e}`")
-@bot.command(name="clean_user")
-async def clean_user(ctx, member: discord.Member, amount: int = 50):
-    if not await is_me(ctx): return
-    try:
-        deleted = await ctx.channel.purge(limit=amount, check=lambda m: m.author == member)
-        await ctx.author.send(f"✅ 已清理 {len(deleted)} 則來自 {member.name} 的訊息")
-    except: pass
-
-@bot.command(name="clean_keyword")
-async def clean_keyword(ctx, keyword: str, amount: int = 50):
-    if not await is_me(ctx): return
-    try:
-        deleted = await ctx.channel.purge(limit=amount, check=lambda m: keyword in m.content)
-        await ctx.author.send(f"✅ 已清理 {len(deleted)} 則包含『{keyword}』的訊息")
-    except: pass
-
+        await ctx.author.send(f"❌ Error: {e}")
 @bot.command(name="reset")
 async def reboot(ctx):
     if not await is_me(ctx): return
