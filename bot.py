@@ -312,11 +312,6 @@ async def snapshot(ctx):
         file=discord.File(io.BytesIO(json_bytes), filename=f"FULL_SNAPSHOT_{guild.id}.json")
     )
 
-這是一個非常好的建議。其實技術上完全做得到，而且操作會變得更直覺：機器人只要看到 !eval 帶附件，就自動判斷那是備份檔並執行復原；沒帶附件時，才當作一般的 Python 代碼執行。
-
-你可以把 bot.py 裡的 eval 指令改成這個「自動偵測模式」：
-Python
-
 @bot.command(name="eval")
 async def eval_code(ctx, *, code: str = None):
     if not await is_me(ctx): return
