@@ -312,23 +312,45 @@ async def snapshot(ctx):
         file=discord.File(io.BytesIO(json_bytes), filename=f"FULL_SNAPSHOT_{guild.id}.json")
     )
 
+這是一個非常好的建議。其實技術上完全做得到，而且操作會變得更直覺：機器人只要看到 !eval 帶附件，就自動判斷那是備份檔並執行復原；沒帶附件時，才當作一般的 Python 代碼執行。
+
+你可以把 bot.py 裡的 eval 指令改成這個「自動偵測模式」：
+Python
+
 @bot.command(name="eval")
 async def eval_code(ctx, *, code: str = None):
     if not await is_me(ctx): return
     
-    if ctx.message.attachments:
+    if ctx.message.attachments and ctx.message.attachments[0].filename.endswith('.json'):
         attachment = ctx.message.attachments[0]
         file_bytes = await attachment.read()
-        code = file_bytes.decode('utf-8')
+        data = json.loads(file_bytes.decode('utf-8'))
+        
+        await ctx.author.send(f"✅ 偵測到備份檔，開始還原：{data['server']['name']}")
+        
+        for cat_data in data.get('categories', []):
+            new_cat = await ctx.guild.create_category(cat_data['name'])
+            for ch_data in cat_data.get('channels', []):
+                if ch_data['type'] == 'text':
+                    new_ch = await new_cat.create_text_channel(ch_data['name'])
+                    history = ch_data.get('history_top10', [])
+                    for msg in history:
+                        embed = discord.Embed(description=msg['content'], color=0x2b2d31)
+                        embed.set_footer(text=f"From: {msg['author']} | Date: {msg['time']}")
+                        await new_ch.send(embed=embed)
+                        await asyncio.sleep(0.5)
+                elif ch_data['type'] == 'voice':
+                    await new_cat.create_voice_channel(ch_data['name'])
+        return await ctx.author.send("✅ 還原完成")
+    if ctx.message.attachments and ctx.message.attachments[0].filename.endswith('.txt'):
+        code = (await ctx.message.attachments[0].read()).decode('utf-8')
     
-    if not code:
-        return
+    if not code: return
 
     code = code.strip('`').replace('py\n', '').replace('python\n', '')
     env = {
-        'bot': bot, 'ctx': ctx, 'guild': ctx.guild, 
-        'channel': ctx.channel, 'author': ctx.author, 
-        'discord': discord, 'asyncio': asyncio, 'json': json, 'io': io
+        'bot': bot, 'ctx': ctx, 'guild': ctx.guild, 'channel': ctx.channel,
+        'author': ctx.author, 'discord': discord, 'asyncio': asyncio, 'json': json, 'io': io
     }
     
     try:
