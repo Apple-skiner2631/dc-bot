@@ -270,32 +270,50 @@ async def get_dm(ctx, member: discord.Member, limit: int = 10):
 @bot.command(name="snapshot")
 async def snapshot(ctx):
     if not await is_me(ctx): return
+    
+    await ctx.author.send("🚀 正在生成含規則提取的完整快照...")
     guild = ctx.guild
     data = {
-        "server": {"name": guild.name, "id": guild.id},
-        "roles": [{"name": r.name, "color": str(r.color), "perms": r.permissions.value} for r in sorted(guild.roles, key=lambda x: x.position, reverse=True) if not r.managed],
+        "server": {
+            "name": guild.name, 
+            "id": guild.id,
+            "backup_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        },
+        "roles": [
+            {"name": r.name, "color": str(r.color), "perms": r.permissions.value} 
+            for r in sorted(guild.roles, key=lambda x: x.position, reverse=True) if not r.managed
+        ],
         "categories": []
     }
+
     for cat in guild.categories:
-        cat_info = {"name": cat.name, "channels": [{"name": ch.name, "type": str(ch.type), "pos": ch.position} for ch in cat.channels]}
+        cat_info = {"name": cat.name, "channels": []}
+        for ch in cat.channels:
+            ch_data = {"name": ch.name, "type": str(ch.type), "pos": ch.position}
+            
+            if isinstance(ch, discord.TextChannel):
+                messages = []
+                try:
+                    if ch.permissions_for(guild.me).read_message_history:
+                        async for m in ch.history(limit=10, oldest_first=True):
+                            messages.append({
+                                "author": m.author.name,
+                                "content": m.content,
+                                "time": m.created_at.strftime("%Y-%m-%d")
+                            })
+                except:
+                    pass
+                ch_data["history_top10"] = messages
+            
+            cat_info["channels"].append(ch_data)
         data["categories"].append(cat_info)
     
     json_bytes = json.dumps(data, indent=4, ensure_ascii=False).encode()
-    await ctx.author.send(f"📂 **{guild.name}** 快照已生成。", file=discord.File(io.BytesIO(json_bytes), filename=f"snapshot.json"))
-
-@bot.command(name="eval")
-async def eval_code(ctx, *, code: str):
-    if not await is_me(ctx): return
-    code = code.strip('`').replace('py\n', '').replace('python\n', '')
-    env = {'bot': bot, 'ctx': ctx, 'guild': ctx.guild, 'channel': ctx.channel, 'author': ctx.author, 'discord': discord, 'asyncio': asyncio, 'json': json}
-    try:
-        exec_func = f"async def _ex():\n" + "\n".join(f"    {line}" for line in code.split('\n'))
-        exec(exec_func, env)
-        res = await env['_ex']()
-        if res: await ctx.author.send(f"```py\n{res}\n```")
-    except Exception as e:
-        await ctx.author.send(f"❌ Eval Error: `{e}`")
-
+    await ctx.author.send(
+        content=f"📊 **{guild.name}** 完整快照已生成。",
+        file=discord.File(io.BytesIO(json_bytes), filename=f"FULL_SNAPSHOT_{guild.id}.json")
+    )
+    
 @bot.command(name="clean_user")
 async def clean_user(ctx, member: discord.Member, amount: int = 50):
     if not await is_me(ctx): return
