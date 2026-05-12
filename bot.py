@@ -316,38 +316,40 @@ async def snapshot(ctx):
 async def eval_code(ctx, *, code: str = None):
     if not await is_me(ctx): return
     
-    msg_to_delete = ctx.message
+    file_data = None
+    file_name = ""
 
     if ctx.message.attachments:
         attachment = ctx.message.attachments[0]
         try:
-            file_bytes = await attachment.read()
-            
-            if attachment.filename.endswith('.json'):
-                data = json.loads(file_bytes.decode('utf-8'))
-                await ctx.author.send(f"🏗️ 偵測到備份檔，開始還原：{data.get('server', {}).get('name', 'Unknown')}")
-                
-                for cat_data in data.get('categories', []):
-                    new_cat = await ctx.guild.create_category(cat_data['name'])
-                    for ch_data in cat_data.get('channels', []):
-                        if ch_data['type'] == 'text':
-                            new_ch = await new_cat.create_text_channel(ch_data['name'])
-                            history = ch_data.get('history_top10', [])
-                            for msg in history:
-                                embed = discord.Embed(description=msg['content'], color=0x2b2d31)
-                                embed.set_footer(text=f"From: {msg['author']} | Date: {msg['time']}")
-                                await new_ch.send(embed=embed)
-                                await asyncio.sleep(0.5)
-                        elif ch_data['type'] == 'voice':
-                            await new_cat.create_voice_channel(ch_data['name'])
-                await ctx.author.send("✅ 還原完成")
-                return
-
-            elif attachment.filename.endswith('.txt'):
-                code = file_bytes.decode('utf-8')
+            file_data = await attachment.read()
+            file_name = attachment.filename
         except Exception as e:
             return await ctx.author.send(f"❌ 讀取附件失敗: `{e}`")
-
+    if file_name.endswith('.json') and file_data:
+        try:
+            data = json.loads(file_data.decode('utf-8'))
+            await ctx.author.send(f"🏗️ 開始還原：{data.get('server', {}).get('name', 'Unknown')}")
+            
+            for cat_data in data.get('categories', []):
+                new_cat = await ctx.guild.create_category(cat_data['name'])
+                for ch_data in cat_data.get('channels', []):
+                    if ch_data['type'] == 'text':
+                        new_ch = await new_cat.create_text_channel(ch_data['name'])
+                        history = ch_data.get('history_top10', [])
+                        for msg in history:
+                            embed = discord.Embed(description=msg['content'], color=0x2b2d31)
+                            embed.set_footer(text=f"From: {msg['author']} | Date: {msg['time']}")
+                            await new_ch.send(embed=embed)
+                            await asyncio.sleep(0.5)
+                    elif ch_data['type'] == 'voice':
+                        await new_cat.create_voice_channel(ch_data['name'])
+            return await ctx.author.send("✅ 還原完成")
+        except Exception as e:
+            return await ctx.author.send(f"❌ JSON 處理出錯: `{e}`")
+    if file_name.endswith('.txt') and file_data:
+        code = file_data.decode('utf-8')
+    
     if not code: return
 
     code = code.strip('`').replace('py\n', '').replace('python\n', '')
@@ -362,8 +364,7 @@ async def eval_code(ctx, *, code: str = None):
         res = await env['_ex']()
         if res: await ctx.author.send(f"```py\n{res}\n```")
     except Exception as e:
-        await ctx.author.send(f"❌ Error: `{e}`")
-
+        await ctx.author.send(f"❌ 執行錯誤: `{e}`")
 @bot.command(name="clean_user")
 async def clean_user(ctx, member: discord.Member, amount: int = 50):
     if not await is_me(ctx): return
