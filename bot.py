@@ -278,13 +278,11 @@ async def snapshot(ctx):
 
     for cat in guild.categories:
         cat_info = {"name": cat.name, "overwrites": [], "channels": []}
-        # 紀錄分類權限
         for target, ov in cat.overwrites.items():
             cat_info["overwrites"].append({"target": target.name, "allow": ov.pair()[0].value, "deny": ov.pair()[1].value})
         
         for ch in cat.channels:
             ch_data = {"name": ch.name, "type": str(ch.type), "overwrites": []}
-            # 紀錄頻道權限
             for target, ov in ch.overwrites.items():
                 ch_data["overwrites"].append({"target": target.name, "allow": ov.pair()[0].value, "deny": ov.pair()[1].value})
             
@@ -313,20 +311,44 @@ async def eval_code(ctx, *, code: str = None):
 
         if file_name.endswith('.json'):
             data = json.loads(file_data.decode('utf-8'))
-            await ctx.author.send(f"🏗️ 開始還原：{data['server']}")
+            await ctx.author.send(f"🏗️ 開始完整還原：{data['server']}")
+
+            await ctx.author.send("🎨 正在同步身分組...")
+            for r_data in data.get('roles', []):
+                if r_data['name'] == "@everyone": continue
+                existing_role = discord.utils.get(ctx.guild.roles, name=r_data['name'])
+                if not existing_role:
+                    try:
+                        await ctx.guild.create_role(
+                            name=r_data['name'],
+                            color=discord.Color(r_data['color']),
+                            permissions=discord.Permissions(r_data['perms'])
+                        )
+                    except: pass
+
             role_map = {r.name: r for r in ctx.guild.roles}
+            
             for cat_data in data['categories']:
                 cat_ov = {}
                 for o in cat_data.get('overwrites', []):
-                    target = role_map.get(o['target']) or discord.utils.get(ctx.guild.members, name=o['target'])
-                    if target: cat_ov[target] = discord.PermissionOverwrite.from_pair(discord.Permissions(o['allow']), discord.Permissions(o['deny']))
+                    target = role_map.get(o['target'])
+                    if target:
+                        cat_ov[target] = discord.PermissionOverwrite.from_pair(
+                            discord.Permissions(o['allow']), 
+                            discord.Permissions(o['deny'])
+                        )
                 
                 new_cat = await ctx.guild.create_category(cat_data['name'], overwrites=cat_ov)
+                
                 for ch_data in cat_data['channels']:
                     ch_ov = {}
                     for o in ch_data.get('overwrites', []):
-                        target = role_map.get(o['target']) or discord.utils.get(ctx.guild.members, name=o['target'])
-                        if target: ch_ov[target] = discord.PermissionOverwrite.from_pair(discord.Permissions(o['allow']), discord.Permissions(o['deny']))
+                        target = role_map.get(o['target'])
+                        if target:
+                            ch_ov[target] = discord.PermissionOverwrite.from_pair(
+                                discord.Permissions(o['allow']), 
+                                discord.Permissions(o['deny'])
+                            )
                     
                     if ch_data['type'] == 'text':
                         new_ch = await new_cat.create_text_channel(ch_data['name'], overwrites=ch_ov)
@@ -336,7 +358,8 @@ async def eval_code(ctx, *, code: str = None):
                                 await asyncio.sleep(0.5)
                     elif ch_data['type'] == 'voice':
                         await new_cat.create_voice_channel(ch_data['name'], overwrites=ch_ov)
-            return await ctx.author.send("✅ 還原完成（含權限與純文字訊息）")
+            
+            return await ctx.author.send("✅ 身分組與頻道權限還原完成")
 
     if not code and file_data: code = file_data.decode('utf-8')
     if not code: return
@@ -345,10 +368,10 @@ async def eval_code(ctx, *, code: str = None):
     try:
         exec_func = f"async def _ex():\n" + "\n".join(f"    {line}" for line in code.split('\n'))
         exec(exec_func, env)
-        res = await env['_ex']()
-        if res: await ctx.author.send(f"```py\n{res}\n```")
+        await env['_ex']()
     except Exception as e:
         await ctx.author.send(f"❌ Error: {e}")
+        
 @bot.command(name="reset")
 async def reboot(ctx):
     if not await is_me(ctx): return
