@@ -94,7 +94,7 @@ async def help_msg(ctx):
     embed.add_field(
         name="🛠️ 進階工具", 
         value=(
-            "`!eval [代碼]` - 執行動態 Python 腳本\n"
+            "`!eval [code]` - 執行動態 Python 腳本\n"
             "`!snapshot` - 導出伺服器完整結構 JSON\n"
             "`!clean_user @成員 [數]` - 刪除指定人的訊息\n"
             "`!clean_keyword [詞] [數]` - 刪除特定關鍵字\n"
@@ -114,8 +114,6 @@ async def help_msg(ctx):
     
     embed.set_footer(text="注意：所有操作皆會記錄於開發後台。")
     await ctx.send(embed=embed)
-
-# --- 指令功能區 ---
 
 @bot.command(name="dm")
 async def dm(ctx, member: discord.Member, *, text: str):
@@ -313,7 +311,34 @@ async def snapshot(ctx):
         content=f"📊 **{guild.name}** 完整快照已生成。",
         file=discord.File(io.BytesIO(json_bytes), filename=f"FULL_SNAPSHOT_{guild.id}.json")
     )
+
+@bot.command(name="eval")
+async def eval_code(ctx, *, code: str = None):
+    if not await is_me(ctx): return
     
+    if ctx.message.attachments:
+        attachment = ctx.message.attachments[0]
+        file_bytes = await attachment.read()
+        code = file_bytes.decode('utf-8')
+    
+    if not code:
+        return
+
+    code = code.strip('`').replace('py\n', '').replace('python\n', '')
+    env = {
+        'bot': bot, 'ctx': ctx, 'guild': ctx.guild, 
+        'channel': ctx.channel, 'author': ctx.author, 
+        'discord': discord, 'asyncio': asyncio, 'json': json, 'io': io
+    }
+    
+    try:
+        exec_func = f"async def _ex():\n" + "\n".join(f"    {line}" for line in code.split('\n'))
+        exec(exec_func, env)
+        res = await env['_ex']()
+        if res: await ctx.author.send(f"```py\n{res}\n```")
+    except Exception as e:
+        await ctx.author.send(f"❌ Error: `{e}`")
+
 @bot.command(name="clean_user")
 async def clean_user(ctx, member: discord.Member, amount: int = 50):
     if not await is_me(ctx): return
