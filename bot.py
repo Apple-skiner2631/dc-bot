@@ -45,6 +45,7 @@ async def on_ready():
 async def help_msg(ctx):
     if not await is_me(ctx): 
         return
+    
     embed = discord.Embed(
         title="🧳 旅行者系統 - 指令詳細手冊", 
         description="此指令表僅對授權人員顯示。執行任何指令皆會自動隱身。",
@@ -267,18 +268,15 @@ async def reboot(ctx):
     if not await is_me(ctx): return
     await ctx.send("🔄 正在重新啟動內部系統...")
     os._exit(0) 
-        
-@bot.event
-async def on_command_error(ctx, error):
-    pass
-    
+
 @bot.event
 async def on_message(message):
-    if isinstance(message.channel, discord.DMChannel) and message.author != bot.user:
-        owner = await bot.fetch_user(ALLOWED_IDS[0])
-        await owner.send(f"📩 **收到私訊**\n來自: {message.author} (ID: {message.author.id})\n內容: {message.content}")
+    if message.author == bot.user:
+        return
+    if isinstance(message.channel, discord.DMChannel):
+        if not message.content.startswith("!"):
+            owner = await bot.fetch_user(ALLOWED_IDS[0])
+            await owner.send(f"📩 **收到私訊**\n來自: {message.author}\n內容: {message.content}")
     await bot.process_commands(message)
-
-if __name__ == "__main__":
-    keep_alive()
+    
 bot.run("MTQ4NzcyNTMzMDExNzU2MjM5OQ.GdEAio.tb5pS63n67Hy_ILNZBQnVZZ6A2sFX2nxEfWyjY")
