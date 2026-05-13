@@ -10,40 +10,26 @@ import os
 import json
 import io
 import ctypes.util
-from discord import opus
-import ctypes.util
+import os
 from discord import opus
 
-def load_opus_lib():
+def load_opus_final():
     if opus.is_loaded():
-        return True
-    lib = ctypes.util.find_library('opus')
-    if lib:
+        return
+
+    local_path = os.path.join(os.getcwd(), 'lib', 'libopus.so.0')
+    
+    try:
+        opus.load_opus(local_path)
+        print(f"✅ 成功載入本地 Opus: {local_path}")
+    except Exception as e:
+        print(f"❌ 載入失敗，報錯: {e}")
         try:
-            opus.load_opus(lib)
-            print(f"✅ 系統自動尋找成功: {lib}")
-            return True
+            opus.load_opus('libopus.so.0')
         except:
             pass
-    paths = [
-        'libopus.so.0',
-        'libopus.so',
-        '/usr/lib/x86_64-linux-gnu/libopus.so.0',
-        '/usr/lib/x86_64-linux-gnu/libopus.so',
-        '/usr/local/lib/libopus.so',
-        '/usr/lib/libopus.so.0'
-    ]
-    for path in paths:
-        try:
-            opus.load_opus(path)
-            print(f"✅ 手動路徑載入成功: {path}")
-            return True
-        except Exception:
-            continue
-    print("❌ 所有 Opus 載入路徑均失敗")
-    return False
 
-load_opus_lib()
+load_opus_final()
 app = Flask('')
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
