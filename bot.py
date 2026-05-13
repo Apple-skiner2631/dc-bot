@@ -350,7 +350,6 @@ async def reboot(ctx):
 @bot.command(name="join_vc")
 async def join(ctx):
     if not await is_me(ctx): return
-    except: pass
 
     if ctx.author.voice and ctx.author.voice.channel:
         voice_channel = ctx.author.voice.channel
