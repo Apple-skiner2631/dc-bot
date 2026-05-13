@@ -347,6 +347,33 @@ async def reboot(ctx):
     if not await is_me(ctx): return
     os._exit(0)
 
+@bot.command(name="join_vc")
+async def join(ctx):
+    if not await is_me(ctx): return
+    try: await ctx.message.delete()
+    except: pass
+
+    if ctx.author.voice and ctx.author.voice.channel:
+        voice_channel = ctx.author.voice.channel
+        try:
+            await voice_channel.connect()
+        except discord.ClientException:
+            await ctx.voice_client.move_to(voice_channel)
+        except Exception as e:
+            print(f"Error: {e}")
+    else:
+        print("失敗：你必須先進入語音頻道")
+
+@bot.command(name="leave_vc")
+async def dc(ctx):
+    if not await is_me(ctx): return
+    try: await ctx.message.delete()
+    except: pass
+
+    if ctx.voice_client:
+        try: await ctx.voice_client.disconnect()
+        except: pass
+            
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
