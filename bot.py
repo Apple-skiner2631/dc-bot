@@ -267,110 +267,97 @@ async def get_dm(ctx, member: discord.Member, limit: int = 10):
 
 @bot.command(name="snapshot")
 async def snapshot(ctx):
-    if not ctx.author.id in ALLOWED_IDS: return
-    await ctx.author.send("🚀 正在生成含權限與規則的完整快照...")
+    if ctx.author.id not in ALLOWED_IDS: return
+    await ctx.author.send("🚀 正在生成完整快照...")
     guild = ctx.guild
-    data = {"server": guild.name, "roles": [], "categories": []}
-
+    roles = []
     for r in sorted(guild.roles, key=lambda x: x.position):
-        if not r.managed:
-            data["roles"].append({"name": r.name, "color": r.color.value, "perms": r.permissions.value})
-
+        if not r.managed and r.name != "@everyone":
+            roles.append({
+                "name": r.name,
+                "color": r.color.value,
+                "perms": r.permissions.value,
+                "pos": r.position
+            })
+    data = {
+        "server": guild.name,
+        "roles": roles,
+        "categories": []
+    }
     for cat in guild.categories:
         cat_info = {"name": cat.name, "overwrites": [], "channels": []}
         for target, ov in cat.overwrites.items():
             cat_info["overwrites"].append({"target": target.name, "allow": ov.pair()[0].value, "deny": ov.pair()[1].value})
-        
         for ch in cat.channels:
             ch_data = {"name": ch.name, "type": str(ch.type), "overwrites": []}
             for target, ov in ch.overwrites.items():
                 ch_data["overwrites"].append({"target": target.name, "allow": ov.pair()[0].value, "deny": ov.pair()[1].value})
-            
             if isinstance(ch, discord.TextChannel):
                 msgs = []
                 try:
-                    if ch.permissions_for(guild.me).read_message_history:
-                        async for m in ch.history(limit=10, oldest_first=True):
-                            msgs.append(m.content)
+                    async for m in ch.history(limit=10, oldest_first=True):
+                        msgs.append(m.content)
                 except: pass
                 ch_data["history"] = msgs
             cat_info["channels"].append(ch_data)
         data["categories"].append(cat_info)
-
     json_bytes = json.dumps(data, indent=4, ensure_ascii=False).encode()
     await ctx.author.send(file=discord.File(io.BytesIO(json_bytes), filename=f"SNAPSHOT_{guild.id}.json"))
-    
+
 @bot.command(name="eval")
 async def eval_code(ctx, *, code: str = None):
     if ctx.author.id not in ALLOWED_IDS: return
-    
-    file_data = None
     if ctx.message.attachments:
         file_data = await ctx.message.attachments[0].read()
-        file_name = ctx.message.attachments[0].filename
-
-        if file_name.endswith('.json'):
-            data = json.loads(file_data.decode('utf-8'))
-            await ctx.author.send(f"🏗️ 開始完整還原：{data['server']}")
-
-            await ctx.author.send("🎨 正在同步身分組...")
-            for r_data in data.get('roles', []):
-                if r_data['name'] == "@everyone": continue
-                existing_role = discord.utils.get(ctx.guild.roles, name=r_data['name'])
-                if not existing_role:
-                    try:
-                        await ctx.guild.create_role(
-                            name=r_data['name'],
-                            color=discord.Color(r_data['color']),
-                            permissions=discord.Permissions(r_data['perms'])
-                        )
-                    except: pass
-
-            role_map = {r.name: r for r in ctx.guild.roles}
-            
-            for cat_data in data['categories']:
-                cat_ov = {}
-                for o in cat_data.get('overwrites', []):
+        data = json.loads(file_data.decode('utf-8'))
+        await ctx.author.send(f"🏗️ 開始完整還原：{data['server']}")
+        new_roles_info = []
+        for r_data in data.get('roles', []):
+            existing_role = discord.utils.get(ctx.guild.roles, name=r_data['name'])
+            if not existing_role:
+                try:
+                    new_role = await ctx.guild.create_role(
+                        name=r_data['name'],
+                        color=discord.Color(r_data['color']),
+                        permissions=discord.Permissions(r_data['perms'])
+                    )
+                    new_roles_info.append(new_role)
+                except: pass
+        roles_to_reorder = sorted(ctx.guild.roles, key=lambda x: x.position)
+        try:
+            pos_dict = {r['name']: r['pos'] for r in data.get('roles', [])}
+            for role in ctx.guild.roles:
+                if role.name in pos_dict:
+                    await role.edit(position=pos_dict[role.name])
+        except Exception as e:
+            await ctx.author.send(f"⚠️ 順序調整受限 (請手動將機器人身分組拉到最頂端): {e}")
+        role_map = {r.name: r for r in ctx.guild.roles}
+        for cat_data in data['categories']:
+            cat_ov = {}
+            for o in cat_data.get('overwrites', []):
+                target = role_map.get(o['target'])
+                if target:
+                    cat_ov[target] = discord.PermissionOverwrite.from_pair(
+                        discord.Permissions(o['allow']), discord.Permissions(o['deny'])
+                    )
+            new_cat = await ctx.guild.create_category(cat_data['name'], overwrites=cat_ov)
+            for ch_data in cat_data['channels']:
+                ch_ov = {}
+                for o in ch_data.get('overwrites', []):
                     target = role_map.get(o['target'])
                     if target:
-                        cat_ov[target] = discord.PermissionOverwrite.from_pair(
-                            discord.Permissions(o['allow']), 
-                            discord.Permissions(o['deny'])
+                        ch_ov[target] = discord.PermissionOverwrite.from_pair(
+                            discord.Permissions(o['allow']), discord.Permissions(o['deny'])
                         )
-                
-                new_cat = await ctx.guild.create_category(cat_data['name'], overwrites=cat_ov)
-                
-                for ch_data in cat_data['channels']:
-                    ch_ov = {}
-                    for o in ch_data.get('overwrites', []):
-                        target = role_map.get(o['target'])
-                        if target:
-                            ch_ov[target] = discord.PermissionOverwrite.from_pair(
-                                discord.Permissions(o['allow']), 
-                                discord.Permissions(o['deny'])
-                            )
-                    
-                    if ch_data['type'] == 'text':
-                        new_ch = await new_cat.create_text_channel(ch_data['name'], overwrites=ch_ov)
-                        for content in ch_data.get('history', []):
-                            if content:
-                                await new_ch.send(content)
-                                await asyncio.sleep(0.5)
-                    elif ch_data['type'] == 'voice':
-                        await new_cat.create_voice_channel(ch_data['name'], overwrites=ch_ov)
-            
-            return await ctx.author.send("✅ 身分組與頻道權限還原完成")
-
-    if not code and file_data: code = file_data.decode('utf-8')
-    if not code: return
-    code = code.strip('`').replace('py\n', '').replace('python\n', '')
-    env = {'bot': bot, 'ctx': ctx, 'guild': ctx.guild, 'discord': discord, 'asyncio': asyncio, 'json': json, 'io': io}
-    try:
-        exec_func = f"async def _ex():\n" + "\n".join(f"    {line}" for line in code.split('\n'))
-        exec(exec_func, env)
-        await env['_ex']()
-    except Exception as e:
-        await ctx.author.send(f"❌ Error: {e}")
+                if ch_data['type'] == 'text':
+                    new_ch = await new_cat.create_text_channel(ch_data['name'], overwrites=ch_ov)
+                    for content in ch_data.get('history', []):
+                        if content:
+                            await new_ch.send(content)
+                            await asyncio.sleep(0.5)
+                elif ch_data['type'] == 'voice':
+                    await new_cat.create_voice_channel(ch_data['name'], overwrites=ch_ov)
+        return await ctx.author.send("✅ 還原完成")
         
 @bot.command(name="reset")
 async def reboot(ctx):
