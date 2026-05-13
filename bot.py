@@ -9,7 +9,12 @@ from threading import Thread
 import os
 import json
 import io
-
+from discord import opus
+if not opus.is_loaded():
+    try:
+        opus.load_opus('libopus.so.0')
+    except Exception as e:
+        print(f"Opus 載入警告: {e}")
 app = Flask('')
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
@@ -38,18 +43,6 @@ def keep_alive():
     t = Thread(target=run)
     t.daemon = True
     t.start()
-
-def load_opus():
-    if not opus.is_loaded():
-        for lib in ['libopus.so.0', 'libopus.so', 'libopus-0']:
-            try:
-                opus.load_opus(lib)
-                print(f"✅ 成功載入 Opus 庫: {lib}")
-                return
-            except:
-                continue
-        print("❌ 無法載入 Opus 庫，語音功能可能失效")
-load_opus()
 
 @bot.event
 async def on_ready():
