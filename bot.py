@@ -39,6 +39,18 @@ def keep_alive():
     t.daemon = True
     t.start()
 
+def load_opus():
+    if not opus.is_loaded():
+        for lib in ['libopus.so.0', 'libopus.so', 'libopus-0']:
+            try:
+                opus.load_opus(lib)
+                print(f"✅ 成功載入 Opus 庫: {lib}")
+                return
+            except:
+                continue
+        print("❌ 無法載入 Opus 庫，語音功能可能失效")
+load_opus()
+
 @bot.event
 async def on_ready():
     print(f'系統連線成功 | 實例 ID: {VERSION_ID} | 帳號: {bot.user}')
