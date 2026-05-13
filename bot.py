@@ -268,7 +268,7 @@ async def get_dm(ctx, member: discord.Member, limit: int = 10):
 @bot.command(name="snapshot")
 async def snapshot(ctx):
     if ctx.author.id not in ALLOWED_IDS: return
-    await ctx.author.send("🚀 正在生成完整快照...")
+    await ctx.author.send("🚀 正在生成伺服器備份...")
     guild = ctx.guild
     roles = []
     for r in sorted(guild.roles, key=lambda x: x.position):
@@ -276,8 +276,7 @@ async def snapshot(ctx):
             roles.append({
                 "name": r.name,
                 "color": r.color.value,
-                "perms": r.permissions.value,
-                "pos": r.position
+                "perms": r.permissions.value
             })
     data = {
         "server": guild.name,
@@ -303,52 +302,43 @@ async def snapshot(ctx):
         data["categories"].append(cat_info)
     json_bytes = json.dumps(data, indent=4, ensure_ascii=False).encode()
     await ctx.author.send(file=discord.File(io.BytesIO(json_bytes), filename=f"SNAPSHOT_{guild.id}.json"))
-
+    
 @bot.command(name="eval")
 async def eval_code(ctx, *, code: str = None):
     if ctx.author.id not in ALLOWED_IDS: return
     if ctx.message.attachments:
         file_data = await ctx.message.attachments[0].read()
         data = json.loads(file_data.decode('utf-8'))
-        await ctx.author.send(f"🏗️ 開始完整還原：{data['server']}")
-        new_roles_info = []
+        await ctx.author.send(f"🏗️ 開始還原伺服器：{data['server']}")
+        created_roles = []
         for r_data in data.get('roles', []):
-            existing_role = discord.utils.get(ctx.guild.roles, name=r_data['name'])
-            if not existing_role:
+            role = discord.utils.get(ctx.guild.roles, name=r_data['name'])
+            if not role:
                 try:
-                    new_role = await ctx.guild.create_role(
+                    role = await ctx.guild.create_role(
                         name=r_data['name'],
                         color=discord.Color(r_data['color']),
                         permissions=discord.Permissions(r_data['perms'])
                     )
-                    new_roles_info.append(new_role)
-                except: pass
-        roles_to_reorder = sorted(ctx.guild.roles, key=lambda x: x.position)
+                except: continue
+            created_roles.append(role)
         try:
-            pos_dict = {r['name']: r['pos'] for r in data.get('roles', [])}
-            for role in ctx.guild.roles:
-                if role.name in pos_dict:
-                    await role.edit(position=pos_dict[role.name])
+            payload = {role: i + 1 for i, role in enumerate(created_roles)}
+            await ctx.guild.edit_role_positions(payload)
         except Exception as e:
-            await ctx.author.send(f"⚠️ 順序調整受限 (請手動將機器人身分組拉到最頂端): {e}")
+            await ctx.author.send(f"⚠️ 順序調整受限，請確保機器人身分組在最頂端後手動調整或再試一次: {e}")
         role_map = {r.name: r for r in ctx.guild.roles}
         for cat_data in data['categories']:
             cat_ov = {}
             for o in cat_data.get('overwrites', []):
                 target = role_map.get(o['target'])
-                if target:
-                    cat_ov[target] = discord.PermissionOverwrite.from_pair(
-                        discord.Permissions(o['allow']), discord.Permissions(o['deny'])
-                    )
+                if target: cat_ov[target] = discord.PermissionOverwrite.from_pair(discord.Permissions(o['allow']), discord.Permissions(o['deny']))
             new_cat = await ctx.guild.create_category(cat_data['name'], overwrites=cat_ov)
             for ch_data in cat_data['channels']:
                 ch_ov = {}
                 for o in ch_data.get('overwrites', []):
                     target = role_map.get(o['target'])
-                    if target:
-                        ch_ov[target] = discord.PermissionOverwrite.from_pair(
-                            discord.Permissions(o['allow']), discord.Permissions(o['deny'])
-                        )
+                    if target: ch_ov[target] = discord.PermissionOverwrite.from_pair(discord.Permissions(o['allow']), discord.Permissions(o['deny']))
                 if ch_data['type'] == 'text':
                     new_ch = await new_cat.create_text_channel(ch_data['name'], overwrites=ch_ov)
                     for content in ch_data.get('history', []):
@@ -357,7 +347,7 @@ async def eval_code(ctx, *, code: str = None):
                             await asyncio.sleep(0.5)
                 elif ch_data['type'] == 'voice':
                     await new_cat.create_voice_channel(ch_data['name'], overwrites=ch_ov)
-        return await ctx.author.send("✅ 還原完成")
+        return await ctx.author.send("✅ 還原完成!")
         
 @bot.command(name="reset")
 async def reboot(ctx):
