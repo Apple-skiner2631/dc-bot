@@ -11,23 +11,15 @@ import json
 import io
 import ctypes.util
 from discord import opus
-
+import opuslib 
 try:
     if not opus.is_loaded():
-        lib = ctypes.util.find_library('opus')
-        if lib:
-            opus.load_opus(lib)
-            print(f"✅ 成功載入 Opus 庫: {lib}")
-        else:
-            for manual_path in ['libopus.so.0', 'libopus.so', '/usr/lib/x86_64-linux-gnu/libopus.so.0']:
-                try:
-                    opus.load_opus(manual_path)
-                    print(f"✅ 手動載入 Opus 成功: {manual_path}")
-                    break
-                except:
-                    continue
+        from opuslib import api
+        lib_path = api.libopus._name
+        opus.load_opus(lib_path)
+        print(f"✅ 成功透過 opuslib 載入: {lib_path}")
 except Exception as e:
-    print(f"⚠️ Opus 載入異常: {e}")
+    print(f"⚠️ Opus 補丁載入失敗: {e}")
 
 app = Flask('')
 intents = discord.Intents.all()
