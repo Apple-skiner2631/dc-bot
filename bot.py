@@ -349,19 +349,22 @@ async def reboot(ctx):
 
 @bot.command(name="join_vc")
 async def join(ctx):
-    if not await is_me(ctx): return
-
+    if not await is_me(ctx): return 
     if ctx.author.voice and ctx.author.voice.channel:
         voice_channel = ctx.author.voice.channel
         try:
-            await voice_channel.connect()
-        except discord.ClientException:
-            await ctx.voice_client.move_to(voice_channel)
+            print(f"正在嘗試連線至: {voice_channel.name}")
+            if ctx.voice_client:
+                await ctx.voice_client.move_to(voice_channel)
+            else:
+                await voice_channel.connect()
+            print("連線成功")
         except Exception as e:
-            print(f"Error: {e}")
+            await ctx.author.send(f"❌ 無法加入語音: `{e}`")
+            print(f"語音連線失敗: {e}")
     else:
-        print("失敗：你必須先進入語音頻道")
-
+        await ctx.author.send("⚠️ 你必須先進入一個語音頻道！")
+        
 @bot.command(name="leave_vc")
 async def dc(ctx):
     if not await is_me(ctx): return
