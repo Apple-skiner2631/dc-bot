@@ -9,12 +9,26 @@ from threading import Thread
 import os
 import json
 import io
+import ctypes.util
 from discord import opus
-if not opus.is_loaded():
-    try:
-        opus.load_opus('libopus.so.0')
-    except Exception as e:
-        print(f"Opus 載入警告: {e}")
+
+try:
+    if not opus.is_loaded():
+        lib = ctypes.util.find_library('opus')
+        if lib:
+            opus.load_opus(lib)
+            print(f"✅ 成功載入 Opus 庫: {lib}")
+        else:
+            for manual_path in ['libopus.so.0', 'libopus.so', '/usr/lib/x86_64-linux-gnu/libopus.so.0']:
+                try:
+                    opus.load_opus(manual_path)
+                    print(f"✅ 手動載入 Opus 成功: {manual_path}")
+                    break
+                except:
+                    continue
+except Exception as e:
+    print(f"⚠️ Opus 載入異常: {e}")
+
 app = Flask('')
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
