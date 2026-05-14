@@ -79,6 +79,9 @@ def run():
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.ERROR)
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
+def keep_alive():
+    t = Thread(target=run, daemon=True)
+    t.start()
     
 @bot.event
 async def on_ready():
