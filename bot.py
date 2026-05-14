@@ -32,19 +32,6 @@ if not shutil.which("ffmpeg"):
     except:
         pass
 
-FFMPEG_OPTIONS = {
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    'options': '-vn -re -ar 48000 -ac 2',
-}
-YTDL_OPTIONS = {
-    'format': 'bestaudio/best',
-    'noplaylist': True,
-    'quiet': True,
-    'no_warnings': True,
-    'default_search': 'auto',
-    'nocheckcertificate': True,
-}
-
 app = Flask('')
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
@@ -432,14 +419,13 @@ class PlayerControlView(discord.ui.View):
     @discord.ui.button(label="暫停/繼續", style=discord.ButtonStyle.blurple, emoji="⏯️")
     async def play_pause(self, interaction: discord.Interaction, button: discord.ui.Button):
         vc = self.ctx.voice_client
+        if not vc: return
         if vc.is_playing():
             vc.pause()
             await interaction.response.send_message("⏸️ 已暫停", ephemeral=True)
         elif vc.is_paused():
             vc.resume()
             await interaction.response.send_message("▶️ 繼續播放", ephemeral=True)
-        else:
-            await interaction.response.send_message("❌ 目前沒有正在播放的音樂", ephemeral=True)
 
     @discord.ui.button(label="重複: 開", style=discord.ButtonStyle.green, emoji="🔁")
     async def toggle_loop(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -448,70 +434,73 @@ class PlayerControlView(discord.ui.View):
         button.style = discord.ButtonStyle.green if self.is_looping else discord.ButtonStyle.gray
         await interaction.response.edit_message(view=self)
 
-    @discord.ui.button(label="重播/下一首", style=discord.ButtonStyle.gray, emoji="⏭️")
-    async def next_track(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.ctx.voice_client:
-            self.ctx.voice_client.stop()
-            await interaction.response.send_message("⏭️ 重新開始/跳過", ephemeral=True)
-
-    @discord.ui.button(label="停止", style=discord.ButtonStyle.red, emoji="⏹️")
+    @discord.ui.button(label="停止/退出", style=discord.ButtonStyle.red, emoji="⏹️")
     async def stop_player(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_looping = False
         if self.ctx.voice_client:
             self.ctx.voice_client.stop()
             await self.ctx.voice_client.disconnect()
-        await interaction.response.send_message("⏹️ 已停止並退出頻道", ephemeral=True)
+        await interaction.response.send_message("⏹️ 已停止播放並退出頻道", ephemeral=True)
         
 @bot.command(name="p")
 async def p(ctx, *, url):
-    if not await is_me(ctx): return
     if not ctx.voice_client:
         if ctx.author.voice:
             await ctx.author.voice.channel.connect()
         else:
             return await ctx.send("⚠️ 請先進入語音頻道")
-    view = PlayerControlView(ctx, url)
+
     async with ctx.typing():
-        def play_next(error):
-            if view.is_looping and ctx.voice_client:
-                try:
-                    with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
-                        info = ydl.extract_info(url, download=False)
-                        if 'entries' in info: info = info['entries'][0]
-                        next_url = info['url']
-                    
-                    next_source = discord.FFmpegOpusAudio.from_probe(
-                        next_url, executable=ffmpeg_exe, **FFMPEG_OPTIONS
-                    )
-                    ctx.voice_client.play(next_source, after=play_next)
-                except:
-                    pass
+        ytdl_opts = {
+            'format': 'bestaudio/best',
+            'noplaylist': True,
+            'quiet': True,
+            'no_warnings': True,
+            'default_search': 'auto',
+            'nocheckcertificate': True,
+        }
+
+        ffmpeg_opts = {
+            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+            'options': '-vn -re -ar 48000 -ac 2',
+        }
+        def repeat_play(error):
+            if error:
+                print(f"播放發生錯誤: {error}")
+                return
+            if 'view' in locals() and view.is_looping and ctx.voice_client:
+                bot.loop.call_soon_threadsafe(
+                    lambda: bot.loop.create_task(ctx.invoke(bot.get_command('p'), url=url))
+                )
+
         try:
-            with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
+            with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if 'entries' in info: info = info['entries'][0]
                 audio_url = info['url']
                 title = info.get('title', '未知歌曲')
+            view = PlayerControlView(ctx, url)
+
             if ctx.voice_client.is_playing():
                 ctx.voice_client.stop()
-            def repeat_play(error):
-                if error:
-                    print(f"播放出錯: {error}")
-                if ctx.voice_client:
-                    bot.loop.call_soon_threadsafe(
-                        lambda: bot.loop.create_task(p(ctx, url=url))
-                    )
 
             source = await discord.FFmpegOpusAudio.from_probe(
-                audio_url,
-                executable=ffmpeg_exe,
-                **FFMPEG_OPTIONS
+                audio_url, 
+                executable=ffmpeg_exe, 
+                **ffmpeg_opts
             )
+
             ctx.voice_client.play(source, after=repeat_play)
-            await ctx.send(f"🔄 **單曲循環中**: {title}", view=view if 'view' in locals() else None)
+            embed = discord.Embed(title="🎵 正在播放", description=f"**{title}**\n\n已開啟自動循環播放 🔁", color=0x3498db)
+            await ctx.send(embed=embed, view=view)
+
         except Exception as e:
-            await ctx.send(f"❌ 播放失敗：`{str(e)[:100]}`")
-            
+            error_msg = str(e)
+            if "Sign in to confirm you're not a bot" in error_msg:
+                await ctx.send("❌ YouTube 封鎖了此請求。請嘗試使用 SoundCloud 連結！")
+            else:
+                await ctx.send(f"❌ 發生錯誤: `{error_msg[:100]}`")
+                
 @bot.command(name="s")
 async def stop_music(ctx):
     if not await is_me(ctx): return
