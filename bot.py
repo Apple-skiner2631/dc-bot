@@ -42,6 +42,7 @@ YTDL_OPTIONS = {
     'noplaylist': True,
     'quiet': True,
     'no_warnings': True,
+    'cookiefile': 'youtube.com_cookies.txt',
     'default_search': 'auto',
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'extract_flat': False,
