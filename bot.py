@@ -102,10 +102,10 @@ async def help_msg(ctx):
     embed.add_field(
         name="🎵 語音與掛台",
         value=(
-            "`!join` - 加入你所在的語音頻道\n"
-            "`!stop` - 解除掛台目標並退出語音\n"
-            "`!p [URL]` - 播放 YouTube 音訊\n"
-            "`!s` - 停止播放音樂\n"
+            "`!join_vc` - 加入你所在的語音頻道\n"
+            "`!leave_vc` - 退出語音頻道\n"
+            "`!play_music [URL]` - 播放SoundCloud 或是DropBox 音訊\n"
+            "`!stop_music` - 停止播放音樂\n"
         ),
         inline=False
     )
@@ -459,7 +459,7 @@ class PlayerControlView(discord.ui.View):
         else:
             await interaction.response.send_message("⚠️ 你必須在語音頻道內才能使用重連", ephemeral=True)
 
-@bot.command(name="p")
+@bot.command(name="play_music")
 async def p(ctx, *, url):
     if not ctx.voice_client:
         if ctx.author.voice:
@@ -559,7 +559,7 @@ async def p(ctx, *, url):
             else:
                 await ctx.send(f"❌ 解析失敗: `{msg[:100]}`")
                 
-@bot.command(name="s")
+@bot.command(name="stop_music")
 async def stop_music(ctx):
     if not await is_me(ctx): return
     if ctx.voice_client and ctx.voice_client.is_playing():
