@@ -46,13 +46,7 @@ YTDL_OPTIONS = {
     'default_search': 'auto',
     'cookiefile': COOKIE_PATH if os.path.exists(COOKIE_PATH) else None,
     'nocheckcertificate': True,
-    'user_agent': 'com.google.android.youtube/19.16.36 (Linux; U; Android 14; en_US; Pixel 8 Pro; Build/UQ1A.240205.004) terminal/1.0',
-    'extractor_args': {
-        'youtube': {
-            'player_client': ['android'],
-            'skip': ['webpage', 'player_js']
-        }
-    }
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 }
 
 app = Flask('')
