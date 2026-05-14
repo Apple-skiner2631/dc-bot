@@ -442,10 +442,11 @@ async def p(ctx, *, url):
             
             if ctx.voice_client.is_playing():
                 ctx.voice_client.stop()
-            source = await discord.FFmpegOpusAudio.from_probe(
+           source = await discord.FFmpegOpusAudio.from_probe(
                 audio_url,
                 executable=ffmpeg_exe,
-                **FFMPEG_OPTIONS
+                before_options=FFMPEG_OPTIONS['before_options'],
+                options=FFMPEG_OPTIONS['options']
             )
             ctx.voice_client.play(source)
             await ctx.send(f"🎵 正在播放: **{title}**")
