@@ -38,14 +38,19 @@ FFMPEG_OPTIONS = {
     'options': '-vn'
 }
 YTDL_OPTIONS = {
-    'format': 'bestaudio/best',
+YTDL_OPTIONS = {
+    'format': 'm4a/bestaudio/best',
     'noplaylist': True,
     'quiet': True,
     'no_warnings': True,
-    'cookiefile': 'youtube.com_cookies.txt',
     'default_search': 'auto',
+    'cookiefile': 'youtube.com_cookies.txt',
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'extract_flat': False,
+    'nocheckcertificate': True,
+    'ignoreerrors': False,
+    'logtostderr': False,
+    'no_color': True,
+}
 }
 
 app = Flask('')
