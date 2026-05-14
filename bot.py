@@ -37,16 +37,22 @@ FFMPEG_OPTIONS = {
     'options': '-vn -filter:a "volume=0.5" -b:a 64k',
 }
 COOKIE_PATH = os.path.join(os.getcwd(), 'youtube.com_cookies.txt')
+
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': True,
     'no_warnings': True,
     'default_search': 'auto',
+    'cookiefile': COOKIE_PATH if os.path.exists(COOKIE_PATH) else None,
     'nocheckcertificate': True,
-    'username': 'oauth2',
-    'password': '', 
-    'cachedir': '/opt/render/project/src/.cache',
+    'user_agent': 'com.google.android.youtube/19.16.36 (Linux; U; Android 14; en_US; Pixel 8 Pro; Build/UQ1A.240205.004) terminal/1.0',
+    'extractor_args': {
+        'youtube': {
+            'player_client': ['android'],
+            'skip': ['webpage', 'player_js']
+        }
+    }
 }
 
 app = Flask('')
@@ -423,32 +429,27 @@ async def p(ctx, *, url):
             await ctx.author.voice.channel.connect()
         else:
             return await ctx.send("⚠️ 請先進入語音頻道")
+
     async with ctx.typing():
         try:
             with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
                 info = ydl.extract_info(url, download=False)
-                if 'entries' in info:
-                    info = info['entries'][0]
+                if 'entries' in info: info = info['entries'][0]
                 audio_url = info['url']
                 title = info.get('title', '未知歌曲')
             if ctx.voice_client.is_playing():
                 ctx.voice_client.stop()
             source = await discord.FFmpegOpusAudio.from_probe(
                 audio_url,
-                executable=ffmpeg_exe,
+                executable=ffmpeg_exe, 
                 **FFMPEG_OPTIONS
             )
-            
             ctx.voice_client.play(source)
             await ctx.send(f"🎵 正在播放: **{title}**")
 
         except Exception as e:
-            error_msg = str(e)
-            if "Sign in" in error_msg:
-                await ctx.send("❌ YouTube 要求驗證。請確認 `youtube.com_cookies.txt` 已上傳且內容正確。")
-            else:
-                await ctx.send(f"❌ 錯誤: `{error_msg[:100]}`")
-
+            await ctx.send(f"❌ 錯誤：`{str(e)[:150]}`")
+            
 @bot.command(name="s")
 async def stop_music(ctx):
     if not await is_me(ctx): return
