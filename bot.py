@@ -37,18 +37,16 @@ FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
 }
+COOKIE_PATH = os.path.join(os.getcwd(), 'youtube.com_cookies.txt')
 YTDL_OPTIONS = {
-    'format': 'm4a/bestaudio/best',
+    'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': True,
     'no_warnings': True,
     'default_search': 'auto',
-    'cookiefile': 'youtube.com_cookies.txt',
-    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'cookiefile': COOKIE_PATH if os.path.exists(COOKIE_PATH) else None,
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
     'nocheckcertificate': True,
-    'ignoreerrors': False,
-    'logtostderr': False,
-    'no_color': True,
 }
 
 app = Flask('')
