@@ -456,9 +456,14 @@ async def p(ctx, *, url):
         ctx.voice_client.stop()
         await asyncio.sleep(1)
 
+    # 優化後的音訊參數：加入緩衝限制與固定採樣率
+    ytdl_opts = {'format': 'bestaudio/best', 'noplaylist': True, 'quiet': True, 'no_warnings': True, 'default_search': 'auto', 'nocheckcertificate': True}
+    ffmpeg_opts = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn -ar 48000 -ac 2 -b:a 128k -bufsize 64k -af "volume=0.8"', 
+    }
+
     async def silent_play(target_url, current_view):
-        ytdl_opts = {'format': 'bestaudio/best', 'noplaylist': True, 'quiet': True, 'no_warnings': True, 'default_search': 'auto', 'nocheckcertificate': True}
-        ffmpeg_opts = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn -ar 48000 -ac 2'}
         try:
             with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
                 info = ydl.extract_info(target_url, download=False)
@@ -479,9 +484,6 @@ async def p(ctx, *, url):
             pass
 
     async with ctx.typing():
-        ytdl_opts = {'format': 'bestaudio/best', 'noplaylist': True, 'quiet': True, 'no_warnings': True, 'default_search': 'auto', 'nocheckcertificate': True}
-        ffmpeg_opts = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn -ar 48000 -ac 2'}
-
         try:
             with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -490,7 +492,6 @@ async def p(ctx, *, url):
                 title = info.get('title', '未知歌曲')
 
             view = PlayerControlView(ctx, url)
-
             source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **ffmpeg_opts)
             
             def initial_after(error):
@@ -507,7 +508,7 @@ async def p(ctx, *, url):
         except Exception as e:
             msg = str(e)
             if "confirm you're not a bot" in msg:
-                await ctx.send("❌ YouTube 封鎖，請改用 SoundCloud。")
+                await ctx.send("❌ YouTube 不喜歡我們占用資源,請改用SoundCloud")
             else:
                 await ctx.send(f"❌ 錯誤: `{msg[:100]}`")
                 
