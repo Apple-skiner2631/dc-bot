@@ -416,19 +416,25 @@ async def dc(ctx):
         except: pass
 
 @bot.command()
-async def p(ctx, *, url):
+async def test_audio(ctx):
     if not await is_me(ctx): return
-    
     if not ctx.voice_client:
-        await ctx.author.voice.channel.connect()
-
-    async with ctx.typing():
-        with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
-            info = ydl.extract_info(url, download=False)
-            url2 = info['url']
-            source = await discord.FFmpegOpusAudio.from_probe(url2, **FFMPEG_OPTIONS)
-            ctx.voice_client.play(source)
-    await ctx.send(f"🎶 正在播放: **{info['title']}**")
+        if ctx.author.voice:
+            await ctx.author.voice.channel.connect()
+        else:
+            return await ctx.send("⚠️ 請進入語音")
+    test_url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+    
+    try:
+        source = await discord.FFmpegOpusAudio.from_probe(
+            test_url, 
+            executable=ffmpeg_exe,
+            **FFMPEG_OPTIONS
+        )
+        ctx.voice_client.play(source)
+        await ctx.send("🔊 正在進行純淨測試播放...")
+    except Exception as e:
+        await ctx.send(f"❌ 播放引擎出錯：{e}")
     
 @bot.event
 async def on_message(message):
