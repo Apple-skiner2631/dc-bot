@@ -10,23 +10,16 @@ import os
 import json
 import io
 import ctypes
-from discord import opus
+import shutil
+from ffmpeg_downloader import download_ffmpeg
+ffmpeg_exe = "ffmpeg"
+if not shutil.which("ffmpeg"):
+    print("正在下載 FFmpeg 補丁...")
+    ffmpeg_exe = download_ffmpeg()
 import davey
-
-def load_opus_via_davey():
-    if opus.is_loaded():
-        return
-    try:
-        opus.load_opus(davey.opus_path())
-        print(f"✅ 語音核心透過 davey 載入成功！路徑: {davey.opus_path()}")
-    except Exception as e:
-        print(f"❌ davey 載入失敗: {e}")
-        try:
-            opus.load_opus('libopus.so.0')
-        except:
-            pass
-
-load_opus_via_davey()
+from discord import opus
+if not opus.is_loaded():
+    opus.load_opus(davey.opus_path())
 
 app = Flask('')
 intents = discord.Intents.all()
