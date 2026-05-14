@@ -34,7 +34,7 @@ if not shutil.which("ffmpeg"):
 
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    'options': '-vn -filter:a "volume=0.5" -b:a 128k',
+    'options': '-vn -filter:a "volume=0.5" -b:a 64k',
 }
 COOKIE_PATH = os.path.join(os.getcwd(), 'youtube.com_cookies.txt')
 YTDL_OPTIONS = {
@@ -43,11 +43,10 @@ YTDL_OPTIONS = {
     'quiet': True,
     'no_warnings': True,
     'default_search': 'auto',
-    'cookiefile': COOKIE_PATH if os.path.exists(COOKIE_PATH) else None,
-    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'nocheckcertificate': True,
-    'source_address': '0.0.0.0',
-    'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
+    'username': 'oauth2',
+    'password': '', 
+    'cachedir': '/opt/render/project/src/.cache',
 }
 
 app = Flask('')
