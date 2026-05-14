@@ -432,7 +432,6 @@ async def p(ctx, *, url):
             await ctx.author.voice.channel.connect()
         else:
             return await ctx.send("⚠️ 請先進入語音頻道")
-
     async with ctx.typing():
         try:
             with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
@@ -440,16 +439,16 @@ async def p(ctx, *, url):
                 if 'entries' in info: info = info['entries'][0]
                 audio_url = info['url']
                 title = info.get('title', '未知歌曲')
+            
             if ctx.voice_client.is_playing():
                 ctx.voice_client.stop()
-           source = await discord.FFmpegOpusAudio.from_probe(
+            source = await discord.FFmpegOpusAudio.from_probe(
                 audio_url,
                 executable=ffmpeg_exe,
                 **FFMPEG_OPTIONS
             )
             ctx.voice_client.play(source)
             await ctx.send(f"🎵 正在播放: **{title}**")
-
         except Exception as e:
             await ctx.send(f"❌ 錯誤：`{str(e)[:150]}`")
             
@@ -470,4 +469,4 @@ async def on_message(message):
 
 if __name__ == "__main__":
     keep_alive()
-bot.run(os.environ.get("TOKEN"))
+    bot.run(os.environ.get("TOKEN"))
