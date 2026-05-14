@@ -421,6 +421,47 @@ async def dc(ctx):
         try: await ctx.voice_client.disconnect()
         except: pass
 
+
+class PlayerControlView(discord.ui.View):
+    def __init__(self, ctx, url):
+        super().__init__(timeout=None)
+        self.ctx = ctx
+        self.url = url
+        self.is_looping = True
+
+    @discord.ui.button(label="暫停/繼續", style=discord.ButtonStyle.blurple, emoji="⏯️")
+    async def play_pause(self, interaction: discord.Interaction, button: discord.ui.Button):
+        vc = self.ctx.voice_client
+        if vc.is_playing():
+            vc.pause()
+            await interaction.response.send_message("⏸️ 已暫停", ephemeral=True)
+        elif vc.is_paused():
+            vc.resume()
+            await interaction.response.send_message("▶️ 繼續播放", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ 目前沒有正在播放的音樂", ephemeral=True)
+
+    @discord.ui.button(label="重複: 開", style=discord.ButtonStyle.green, emoji="🔁")
+    async def toggle_loop(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.is_looping = not self.is_looping
+        button.label = f"重複: {'開' if self.is_looping else '關'}"
+        button.style = discord.ButtonStyle.green if self.is_looping else discord.ButtonStyle.gray
+        await interaction.response.edit_message(view=self)
+
+    @discord.ui.button(label="重播/下一首", style=discord.ButtonStyle.gray, emoji="⏭️")
+    async def next_track(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.ctx.voice_client:
+            self.ctx.voice_client.stop()
+            await interaction.response.send_message("⏭️ 重新開始/跳過", ephemeral=True)
+
+    @discord.ui.button(label="停止", style=discord.ButtonStyle.red, emoji="⏹️")
+    async def stop_player(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.is_looping = False
+        if self.ctx.voice_client:
+            self.ctx.voice_client.stop()
+            await self.ctx.voice_client.disconnect()
+        await interaction.response.send_message("⏹️ 已停止並退出頻道", ephemeral=True)
+        
 @bot.command(name="p")
 async def p(ctx, *, url):
     if not await is_me(ctx): return
@@ -429,39 +470,38 @@ async def p(ctx, *, url):
             await ctx.author.voice.channel.connect()
         else:
             return await ctx.send("⚠️ 請先進入語音頻道")
+    view = PlayerControlView(ctx, url)
     async with ctx.typing():
-        try:
-            YTDL_PLAYLIST_OPTIONS = {**YTDL_OPTIONS, 'extract_flat': True}
-            with yt_dlp.YoutubeDL(YTDL_PLAYLIST_OPTIONS) as ydl:
-                info = ydl.extract_info(url, download=False)
-                if 'entries' in info:
-                    tracks = list(info['entries'])
-                    await ctx.send(f"📂 已偵測到歌單，共 **{len(tracks)}** 首歌，正在加入隊列...")
-                    for i, entry in enumerate(tracks):
-                        track_url = entry.get('url') or entry.get('webpage_url')
-                        if i == 0:
-                            with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl_single:
-                                s_info = ydl_single.extract_info(track_url, download=False)
-                                audio_url = s_info['url']
-                                title = s_info.get('title', '未知歌曲')
-                            
-                            source = await discord.FFmpegOpusAudio.from_probe(
-                                audio_url, executable=ffmpeg_exe, **FFMPEG_OPTIONS
-                            )
-                            ctx.voice_client.play(source, after=lambda e: check_queue(ctx, ctx.guild.id))
-                            await ctx.send(f"🎵 正在播放: **{title}**")
-                        else:
-                            pass 
-                else:
-                    audio_url = info['url']
-                    title = info.get('title', '未知歌曲')
-                    if ctx.voice_client.is_playing():
-                        ctx.voice_client.stop()
-                    source = await discord.FFmpegOpusAudio.from_probe(
-                        audio_url, executable=ffmpeg_exe, **FFMPEG_OPTIONS
+        def play_next(error):
+            if view.is_looping and ctx.voice_client:
+                try:
+                    with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
+                        info = ydl.extract_info(url, download=False)
+                        if 'entries' in info: info = info['entries'][0]
+                        next_url = info['url']
+                    
+                    next_source = discord.FFmpegOpusAudio.from_probe(
+                        next_url, executable=ffmpeg_exe, **FFMPEG_OPTIONS
                     )
-                    ctx.voice_client.play(source)
-                    await ctx.send(f"🎵 正在播放: **{title}**")
+                    ctx.voice_client.play(next_source, after=play_next)
+                except:
+                    pass
+        try:
+            with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if 'entries' in info: info = info['entries'][0]
+                audio_url = info['url']
+                title = info.get('title', '未知歌曲')
+            
+            if ctx.voice_client.is_playing():
+                ctx.voice_client.stop()
+
+            source = await discord.FFmpegOpusAudio.from_probe(
+                audio_url, executable=ffmpeg_exe, **FFMPEG_OPTIONS
+            )
+            ctx.voice_client.play(source, after=play_next)
+            embed = discord.Embed(title="🎵 正在播放", description=title, color=0x00ff00)
+            await ctx.send(embed=embed, view=view)
         except Exception as e:
             await ctx.send(f"❌ 錯誤：`{str(e)[:150]}`")
             
