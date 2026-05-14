@@ -50,7 +50,6 @@ YTDL_OPTIONS = {
     'logtostderr': False,
     'no_color': True,
 }
-}
 
 app = Flask('')
 intents = discord.Intents.all()
