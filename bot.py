@@ -9,27 +9,24 @@ from threading import Thread
 import os
 import json
 import io
-import ctypes.util
 import os
+import ctypes
 from discord import opus
-
-def load_opus_final():
+def load_opus_force():
     if opus.is_loaded():
         return
-
     local_path = os.path.join(os.getcwd(), 'lib', 'libopus.so.0')
-    
     try:
-        opus.load_opus(local_path)
-        print(f"✅ 成功載入本地 Opus: {local_path}")
-    except Exception as e:
-        print(f"❌ 載入失敗，報錯: {e}")
-        try:
+        if os.path.exists(local_path):
+            opus.load_opus(local_path)
+            print(f"✅ 核心零件載入成功: {local_path}")
+        else:
             opus.load_opus('libopus.so.0')
-        except:
-            pass
+            print("✅ 從系統路徑載入 Opus")
+    except Exception as e:
+        print(f"❌ 語音核心載入失敗: {e}")
+load_opus_force()
 
-load_opus_final()
 app = Flask('')
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
