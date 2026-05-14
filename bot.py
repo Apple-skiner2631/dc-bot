@@ -73,17 +73,13 @@ async def is_me(ctx):
 
 @app.route('/')
 def home():
-    return f"Traveler System [{VERSION_ID}] is Online."
-
+    return "OK"
 def run():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.daemon = True
-    t.start()
-
+    import logging
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
+    
 @bot.event
 async def on_ready():
     print(f'系統連線成功 | 實例 ID: {VERSION_ID} | 帳號: {bot.user}')
