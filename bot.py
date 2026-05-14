@@ -34,7 +34,7 @@ if not shutil.which("ffmpeg"):
 
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    'options': '-vn -filter:a "volume=0.5" -b:a 64k',
+    'options': '-vn -re -ar 48000 -ac 2',
 }
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
@@ -492,18 +492,25 @@ async def p(ctx, *, url):
                 if 'entries' in info: info = info['entries'][0]
                 audio_url = info['url']
                 title = info.get('title', '未知歌曲')
-            
             if ctx.voice_client.is_playing():
                 ctx.voice_client.stop()
+            def repeat_play(error):
+                if error:
+                    print(f"播放出錯: {error}")
+                if ctx.voice_client:
+                    bot.loop.call_soon_threadsafe(
+                        lambda: bot.loop.create_task(p(ctx, url=url))
+                    )
 
             source = await discord.FFmpegOpusAudio.from_probe(
-                audio_url, executable=ffmpeg_exe, **FFMPEG_OPTIONS
+                audio_url,
+                executable=ffmpeg_exe,
+                **FFMPEG_OPTIONS
             )
-            ctx.voice_client.play(source, after=play_next)
-            embed = discord.Embed(title="🎵 正在播放", description=title, color=0x00ff00)
-            await ctx.send(embed=embed, view=view)
+            ctx.voice_client.play(source, after=repeat_play)
+            await ctx.send(f"🔄 **單曲循環中**: {title}", view=view if 'view' in locals() else None)
         except Exception as e:
-            await ctx.send(f"❌ 錯誤：`{str(e)[:150]}`")
+            await ctx.send(f"❌ 播放失敗：`{str(e)[:100]}`")
             
 @bot.command(name="s")
 async def stop_music(ctx):
