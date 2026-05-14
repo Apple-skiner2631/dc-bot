@@ -440,8 +440,8 @@ class PlayerControlView(discord.ui.View):
         if self.ctx.voice_client:
             self.ctx.voice_client.stop()
             await self.ctx.voice_client.disconnect()
-        await interaction.response.send_message("⏹️ 已停止播放並退出頻道", ephemeral=True)
-        
+        await interaction.response.send_message("⏹️ 已停止", ephemeral=True)
+
 @bot.command(name="p")
 async def p(ctx, *, url):
     if not ctx.voice_client:
@@ -450,28 +450,31 @@ async def p(ctx, *, url):
         else:
             return await ctx.send("⚠️ 請先進入語音頻道")
 
-    async with ctx.typing():
-        ytdl_opts = {
-            'format': 'bestaudio/best',
-            'noplaylist': True,
-            'quiet': True,
-            'no_warnings': True,
-            'default_search': 'auto',
-            'nocheckcertificate': True,
-        }
+    async def silent_play(target_url, current_view):
+        ytdl_opts = {'format': 'bestaudio/best', 'noplaylist': True, 'quiet': True, 'no_warnings': True, 'default_search': 'auto', 'nocheckcertificate': True}
+        ffmpeg_opts = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn -re -ar 48000 -ac 2'}
+        try:
+            with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
+                info = ydl.extract_info(target_url, download=False)
+                if 'entries' in info: info = info['entries'][0]
+                audio_url = info['url']
+            
+            source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **ffmpeg_opts)
+            
+            def loop_after(error):
+                if current_view.is_looping and ctx.voice_client:
+                    bot.loop.call_soon_threadsafe(
+                        lambda: bot.loop.create_task(silent_play(target_url, current_view))
+                    )
 
-        ffmpeg_opts = {
-            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-            'options': '-vn -re -ar 48000 -ac 2',
-        }
-        def repeat_play(error):
-            if error:
-                print(f"播放發生錯誤: {error}")
-                return
-            if 'view' in locals() and view.is_looping and ctx.voice_client:
-                bot.loop.call_soon_threadsafe(
-                    lambda: bot.loop.create_task(ctx.invoke(bot.get_command('p'), url=url))
-                )
+            if ctx.voice_client:
+                ctx.voice_client.play(source, after=loop_after)
+        except:
+            pass
+
+    async with ctx.typing():
+        ytdl_opts = {'format': 'bestaudio/best', 'noplaylist': True, 'quiet': True, 'no_warnings': True, 'default_search': 'auto', 'nocheckcertificate': True}
+        ffmpeg_opts = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn -re -ar 48000 -ac 2'}
 
         try:
             with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
@@ -479,27 +482,30 @@ async def p(ctx, *, url):
                 if 'entries' in info: info = info['entries'][0]
                 audio_url = info['url']
                 title = info.get('title', '未知歌曲')
+
             view = PlayerControlView(ctx, url)
 
             if ctx.voice_client.is_playing():
                 ctx.voice_client.stop()
 
-            source = await discord.FFmpegOpusAudio.from_probe(
-                audio_url, 
-                executable=ffmpeg_exe, 
-                **ffmpeg_opts
-            )
+            def initial_after(error):
+                if view.is_looping and ctx.voice_client:
+                    bot.loop.call_soon_threadsafe(
+                        lambda: bot.loop.create_task(silent_play(url, view))
+                    )
 
-            ctx.voice_client.play(source, after=repeat_play)
-            embed = discord.Embed(title="🎵 正在播放", description=f"**{title}**\n\n已開啟自動循環播放 🔁", color=0x3498db)
+            source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **ffmpeg_opts)
+            ctx.voice_client.play(source, after=initial_after)
+
+            embed = discord.Embed(title="🎵 正在播放", description=f"**{title}**\n\n已開啟自動循環 🔁", color=0x3498db)
             await ctx.send(embed=embed, view=view)
 
         except Exception as e:
-            error_msg = str(e)
-            if "Sign in to confirm you're not a bot" in error_msg:
-                await ctx.send("❌ YouTube 封鎖了此請求。請嘗試使用 SoundCloud 連結！")
+            msg = str(e)
+            if "confirm you're not a bot" in msg:
+                await ctx.send("❌ YouTube 不喜歡我們占用他的資源,請改用SoundCloud")
             else:
-                await ctx.send(f"❌ 發生錯誤: `{error_msg[:100]}`")
+                await ctx.send(f"❌ 錯誤: `{msg[:100]}`")
                 
 @bot.command(name="s")
 async def stop_music(ctx):
