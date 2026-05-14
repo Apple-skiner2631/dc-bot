@@ -16,7 +16,14 @@ from ffmpeg_downloader import download_ffmpeg
 ffmpeg_exe = "ffmpeg"
 if not shutil.which("ffmpeg"):
     print("正在下載 FFmpeg 補丁...")
-    ffmpeg_exe = download_ffmpeg()
+    ffmpeg_downloader.download()
+    ffmpeg_exe = os.path.join(os.getcwd(), "ffmpeg")
+    os.chmod(ffmpeg_exe, 0o755)
+    print(f"✅ FFmpeg 已準備就緒: {ffmpeg_exe}")
+FFMPEG_OPTIONS = {
+    'executable': ffmpeg_exe,
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'options': '-vn'
 import davey
 from discord import opus
 if not opus.is_loaded():
