@@ -60,7 +60,14 @@ async def is_me(ctx):
             pass
         return True
     return False
+    
+queues = {}
 
+def check_queue(ctx, guild_id):
+    if guild_id in queues and queues[guild_id]:
+        source = queues[guild_id].pop(0)
+        ctx.voice_client.play(source, after=lambda e: check_queue(ctx, guild_id))
+        
 @app.route('/')
 def home():
     return "Bot is alive"
@@ -424,22 +431,37 @@ async def p(ctx, *, url):
             return await ctx.send("⚠️ 請先進入語音頻道")
     async with ctx.typing():
         try:
-            with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
+            YTDL_PLAYLIST_OPTIONS = {**YTDL_OPTIONS, 'extract_flat': True}
+            with yt_dlp.YoutubeDL(YTDL_PLAYLIST_OPTIONS) as ydl:
                 info = ydl.extract_info(url, download=False)
-                if 'entries' in info: info = info['entries'][0]
-                audio_url = info['url']
-                title = info.get('title', '未知歌曲')
-            if ctx.voice_client.is_playing():
-                ctx.voice_client.stop()
-            source = await discord.FFmpegOpusAudio.from_probe(
-                audio_url,
-                executable=ffmpeg_exe,
-                before_options=FFMPEG_OPTIONS.get('before_options'),
-                options=FFMPEG_OPTIONS.get('options')
-            )
-            ctx.voice_client.play(source)
-            await ctx.send(f"🎵 正在播放 (SoundCloud/Other): **{title}**")
-
+                if 'entries' in info:
+                    tracks = list(info['entries'])
+                    await ctx.send(f"📂 已偵測到歌單，共 **{len(tracks)}** 首歌，正在加入隊列...")
+                    for i, entry in enumerate(tracks):
+                        track_url = entry.get('url') or entry.get('webpage_url')
+                        if i == 0:
+                            with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl_single:
+                                s_info = ydl_single.extract_info(track_url, download=False)
+                                audio_url = s_info['url']
+                                title = s_info.get('title', '未知歌曲')
+                            
+                            source = await discord.FFmpegOpusAudio.from_probe(
+                                audio_url, executable=ffmpeg_exe, **FFMPEG_OPTIONS
+                            )
+                            ctx.voice_client.play(source, after=lambda e: check_queue(ctx, ctx.guild.id))
+                            await ctx.send(f"🎵 正在播放: **{title}**")
+                        else:
+                            pass 
+                else:
+                    audio_url = info['url']
+                    title = info.get('title', '未知歌曲')
+                    if ctx.voice_client.is_playing():
+                        ctx.voice_client.stop()
+                    source = await discord.FFmpegOpusAudio.from_probe(
+                        audio_url, executable=ffmpeg_exe, **FFMPEG_OPTIONS
+                    )
+                    ctx.voice_client.play(source)
+                    await ctx.send(f"🎵 正在播放: **{title}**")
         except Exception as e:
             await ctx.send(f"❌ 錯誤：`{str(e)[:150]}`")
             
