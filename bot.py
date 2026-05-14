@@ -12,22 +12,32 @@ import io
 import ctypes
 import shutil
 import yt_dlp
-from ffmpeg_downloader import download_ffmpeg
+import ffmpeg_downloader
+import davey
+from discord import opus
+
+if not opus.is_loaded():
+    try:
+        opus.load_opus(davey.opus_path())
+    except:
+        pass
+
 ffmpeg_exe = "ffmpeg"
 if not shutil.which("ffmpeg"):
-    print("正在下載 FFmpeg 補丁...")
-    ffmpeg_downloader.download()
-    ffmpeg_exe = os.path.join(os.getcwd(), "ffmpeg")
-    os.chmod(ffmpeg_exe, 0o755)
-    print(f"✅ FFmpeg 已準備就緒: {ffmpeg_exe}")
+    try:
+        ffmpeg_downloader.download()
+        ffmpeg_exe = os.path.join(os.getcwd(), "ffmpeg")
+        if os.path.exists(ffmpeg_exe):
+            os.chmod(ffmpeg_exe, 0o755)
+    except:
+        pass
+
 FFMPEG_OPTIONS = {
     'executable': ffmpeg_exe,
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
-import davey
-from discord import opus
-if not opus.is_loaded():
-    opus.load_opus(davey.opus_path())
+}
+YTDL_OPTIONS = {'format': 'bestaudio/best', 'noplaylist': True}
 
 app = Flask('')
 intents = discord.Intents.all()
@@ -35,8 +45,6 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 ALLOWED_IDS = [1008278721007992863, 1355108796388872292]
 VERSION_ID = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
-YTDL_OPTIONS = {'format': 'bestaudio/best', 'noplaylist': True}
-FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 
 async def is_me(ctx):
     if ctx.author.id in ALLOWED_IDS:
