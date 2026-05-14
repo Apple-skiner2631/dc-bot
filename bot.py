@@ -36,7 +36,7 @@ FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn -filter:a "volume=0.5" -b:a 64k',
 }
-COOKIE_PATH = os.path.join(os.getcwd(), 'youtube.com_cookies.txt')
+COOKIE_PATH = os.path.join(os.getcwd(), 'cookies.txt')
 
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
