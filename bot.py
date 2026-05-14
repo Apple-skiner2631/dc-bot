@@ -44,7 +44,7 @@ YTDL_OPTIONS = {
     'quiet': True,
     'no_warnings': True,
     'default_search': 'auto',
-    'cookiefile': COOKIE_PATH if os.path.exists(COOKIE_PATH) else None,
+    #'cookiefile': COOKIE_PATH if os.path.exists(COOKIE_PATH) else None,
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
     'nocheckcertificate': True,
 }
