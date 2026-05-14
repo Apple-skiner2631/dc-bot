@@ -38,7 +38,6 @@ FFMPEG_OPTIONS = {
     'options': '-vn'
 }
 YTDL_OPTIONS = {
-YTDL_OPTIONS = {
     'format': 'm4a/bestaudio/best',
     'noplaylist': True,
     'quiet': True,
