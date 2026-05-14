@@ -408,7 +408,6 @@ async def dc(ctx):
         try: await ctx.voice_client.disconnect()
         except: pass
 
-
 class PlayerControlView(discord.ui.View):
     def __init__(self, ctx, url):
         super().__init__(timeout=None)
@@ -421,7 +420,6 @@ class PlayerControlView(discord.ui.View):
         vc = self.ctx.voice_client
         if not vc:
             return await interaction.response.send_message("❌ 機器人不在語音頻道中", ephemeral=True)
-        
         if vc.is_playing():
             vc.pause()
             await interaction.response.send_message("⏸️ 已暫停播放", ephemeral=True)
@@ -436,7 +434,6 @@ class PlayerControlView(discord.ui.View):
         self.is_looping = not self.is_looping
         button.label = f"重複: {'開' if self.is_looping else '關'}"
         button.style = discord.ButtonStyle.green if self.is_looping else discord.ButtonStyle.gray
-
         await interaction.response.edit_message(view=self)
 
     @discord.ui.button(label="停止/退出", style=discord.ButtonStyle.red, emoji="⏹️")
@@ -549,7 +546,8 @@ async def p(ctx, *, url):
             embed.add_field(name="🎵 歌名", value=f"[{title}]({url})", inline=False)
             embed.add_field(name="📤 上傳者", value=uploader, inline=True)
             if duration:
-                embed.add_field(name="長度", value=f"{duration // 60}:{duration % 60:02d}", inline=True)
+                d_int = int(duration)
+                embed.add_field(name="⏱️ 長度", value=f"{d_int // 60}:{d_int % 60:02d}", inline=True)
             embed.set_footer(text="🔄 自動循環已啟用")
             
             await ctx.send(embed=embed, view=view)
@@ -557,7 +555,7 @@ async def p(ctx, *, url):
         except Exception as e:
             msg = str(e)
             if "confirm you're not a bot" in msg:
-                await ctx.send("❌ YouTube 不喜歡我們占用資源,請使用 SoundCloud連結。")
+                await ctx.send("❌ YouTube 不喜歡我們占用資源，請換 SoundCloud 連結試試。")
             else:
                 await ctx.send(f"❌ 解析失敗: `{msg[:100]}`")
                 
