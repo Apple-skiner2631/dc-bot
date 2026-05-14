@@ -33,9 +33,8 @@ if not shutil.which("ffmpeg"):
         pass
 
 FFMPEG_OPTIONS = {
-#    'executable': ffmpeg_exe,
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    'options': '-vn'
+    'options': '-vn -filter:a "volume=0.5" -b:a 128k',
 }
 COOKIE_PATH = os.path.join(os.getcwd(), 'youtube.com_cookies.txt')
 YTDL_OPTIONS = {
@@ -44,9 +43,11 @@ YTDL_OPTIONS = {
     'quiet': True,
     'no_warnings': True,
     'default_search': 'auto',
-    #'cookiefile': COOKIE_PATH if os.path.exists(COOKIE_PATH) else None,
-    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+    'cookiefile': COOKIE_PATH if os.path.exists(COOKIE_PATH) else None,
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'nocheckcertificate': True,
+    'source_address': '0.0.0.0',
+    'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
 }
 
 app = Flask('')
@@ -415,26 +416,46 @@ async def dc(ctx):
         try: await ctx.voice_client.disconnect()
         except: pass
 
-@bot.command()
-async def test_audio(ctx):
+@bot.command(name="p")
+async def p(ctx, *, url):
     if not await is_me(ctx): return
     if not ctx.voice_client:
         if ctx.author.voice:
             await ctx.author.voice.channel.connect()
         else:
-            return await ctx.send("⚠️ 請進入語音")
-    test_url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-    
-    try:
-        source = await discord.FFmpegOpusAudio.from_probe(
-            test_url, 
-            executable=ffmpeg_exe,
-            **FFMPEG_OPTIONS
-        )
-        ctx.voice_client.play(source)
-        await ctx.send("🔊 正在進行純淨測試播放...")
-    except Exception as e:
-        await ctx.send(f"❌ 播放引擎出錯：{e}")
+            return await ctx.send("⚠️ 請先進入語音頻道")
+    async with ctx.typing():
+        try:
+            with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if 'entries' in info:
+                    info = info['entries'][0]
+                audio_url = info['url']
+                title = info.get('title', '未知歌曲')
+            if ctx.voice_client.is_playing():
+                ctx.voice_client.stop()
+            source = await discord.FFmpegOpusAudio.from_probe(
+                audio_url,
+                executable=ffmpeg_exe,
+                **FFMPEG_OPTIONS
+            )
+            
+            ctx.voice_client.play(source)
+            await ctx.send(f"🎵 正在播放: **{title}**")
+
+        except Exception as e:
+            error_msg = str(e)
+            if "Sign in" in error_msg:
+                await ctx.send("❌ YouTube 要求驗證。請確認 `youtube.com_cookies.txt` 已上傳且內容正確。")
+            else:
+                await ctx.send(f"❌ 錯誤: `{error_msg[:100]}`")
+
+@bot.command(name="s")
+async def stop_music(ctx):
+    if not await is_me(ctx): return
+    if ctx.voice_client and ctx.voice_client.is_playing():
+        ctx.voice_client.stop()
+        await ctx.send("⏹️ 已停止播放")
     
 @bot.event
 async def on_message(message):
