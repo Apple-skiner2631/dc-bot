@@ -73,16 +73,20 @@ async def is_me(ctx):
 
 @app.route('/')
 def home():
-    return "OK"
+    return "Bot is alive"
+
 def run():
     import logging
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.ERROR)
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
+
 def keep_alive():
     t = Thread(target=run, daemon=True)
     t.start()
-    
+
+intents = discord.Intents.all()
+
 @bot.event
 async def on_ready():
     print(f'系統連線成功 | 實例 ID: {VERSION_ID} | 帳號: {bot.user}')
@@ -438,9 +442,9 @@ async def p(ctx, *, url):
                 title = info.get('title', '未知歌曲')
             if ctx.voice_client.is_playing():
                 ctx.voice_client.stop()
-            source = await discord.FFmpegOpusAudio.from_probe(
+           source = await discord.FFmpegOpusAudio.from_probe(
                 audio_url,
-                executable=ffmpeg_exe, 
+                executable=ffmpeg_exe,
                 **FFMPEG_OPTIONS
             )
             ctx.voice_client.play(source)
@@ -466,5 +470,4 @@ async def on_message(message):
 
 if __name__ == "__main__":
     keep_alive()
-
-bot.run("MTQ4NzcyNTMzMDExNzU2MjM5OQ.GdEAio.tb5pS63n67Hy_ILNZBQnVZZ6A2sFX2nxEfWyjY")
+bot.run(os.environ.get("TOKEN"))
