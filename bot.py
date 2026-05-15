@@ -37,7 +37,7 @@ app = Flask('')
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-ALLOWED_IDS = [1008278721007992863, 1355108796388872292]
+ALLOWED_IDS = [1008278721007992863, 1355108796388872292,1359813653544566815,1422570014292181133]
 VERSION_ID = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
 
 async def is_me(ctx):
