@@ -467,7 +467,7 @@ class PlayerControlView(discord.ui.View):
         else:
             await interaction.response.send_message("❌ 機器人已不在頻道中", ephemeral=True)
 
-    @discord.ui.button(label="退出頻道", style=discord.ButtonStyle.red, emoji="門")
+    @discord.ui.button(label="退出頻道", style=discord.ButtonStyle.red, emoji="🚪")
     async def leave_vc(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_looping = False
         self.manual_stop = True
@@ -482,7 +482,7 @@ class PlayerControlView(discord.ui.View):
                 if self.ctx.voice_client:
                     await self.ctx.voice_client.disconnect(force=True)
                 await self.ctx.author.voice.channel.connect(reconnect=True)
-                await interaction.response.send_message("✅ 已強制重新連接語音頻道", ephemeral=True)
+                await interaction.response.send_message("✅ 已強制重新連接語音端點", ephemeral=True)
             except Exception as e:
                 await interaction.response.send_message(f"❌ 重連失敗: {e}", ephemeral=True)
         else:
@@ -504,14 +504,15 @@ async def play_bgm(ctx):
                 return ydl.extract_info(BGM_URL, download=False)
         
         info = await bot.loop.run_in_executor(None, fetch_bgm)
-        audio_url = info.get('url') or info['entries'][0]['url']
-        source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **bgm_ffmpeg_opts)
+        url = info.get('url') or info['entries'][0]['url']
+        source = await discord.FFmpegOpusAudio.from_probe(url, executable=ffmpeg_exe, **bgm_ffmpeg_opts)
         
         def after_bgm(error):
             if bgm_enabled and ctx.voice_client and not ctx.voice_client.is_playing() and not is_switching:
                 bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
         
-        ctx.voice_client.play(source, after=after_bgm)
+        if ctx.voice_client and not ctx.voice_client.is_playing():
+            ctx.voice_client.play(source, after=after_bgm)
     except:
         pass
 
@@ -534,17 +535,7 @@ async def p(ctx, *, url):
 
     ffmpeg_opts = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-        'options': (
-            '-vn '
-            '-ar 48000 '
-            '-ac 2 '
-            '-b:a 256k '
-            '-packet_loss 5 '
-            '-af "volume=0.9" '
-            '-async 1 '
-            '-frame_duration 20 '
-            '-preset veryfast'
-        )
+        'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
     }
 
     async def silent_play(target_url, current_view):
@@ -562,9 +553,7 @@ async def p(ctx, *, url):
             def loop_after(error):
                 if current_view.manual_stop or is_switching: return
                 if current_view.is_looping and ctx.voice_client:
-                    bot.loop.call_soon_threadsafe(
-                        lambda: bot.loop.create_task(silent_play(target_url, current_view))
-                    )
+                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(target_url, current_view)))
                 else:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
 
@@ -593,19 +582,15 @@ async def p(ctx, *, url):
             def initial_after(error):
                 if view.manual_stop: return
                 if view.is_looping and ctx.voice_client:
-                    bot.loop.call_soon_threadsafe(
-                        lambda: bot.loop.create_task(silent_play(url, view))
-                    )
+                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(url, view)))
                 else:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
 
             ctx.voice_client.play(source, after=initial_after)
             is_switching = False
             await ctx.send(embed=view._get_embed(), view=view)
-
-        except Exception as e:
+        except:
             is_switching = False
-            await ctx.send(f"❌ 播放失敗: `{str(e)[:100]}`")
             await play_bgm(ctx)
 
 @bot.command(name="stop_music")
