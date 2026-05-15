@@ -416,20 +416,18 @@ class PlayerControlView(discord.ui.View):
         self.ctx = ctx
         self.url = url
         self.is_looping = True
+        self.manual_stop = False
 
     @discord.ui.button(label="暫停/繼續", style=discord.ButtonStyle.blurple, emoji="⏯️")
     async def play_pause(self, interaction: discord.Interaction, button: discord.ui.Button):
         vc = self.ctx.voice_client
-        if not vc:
-            return await interaction.response.send_message("❌ 機器人不在語音頻道中", ephemeral=True)
+        if not vc: return await interaction.response.send_message("❌ 機器人不在語音頻道中", ephemeral=True)
         if vc.is_playing():
             vc.pause()
             await interaction.response.send_message("⏸️ 已暫停播放", ephemeral=True)
         elif vc.is_paused():
             vc.resume()
             await interaction.response.send_message("▶️ 繼續播放", ephemeral=True)
-        else:
-            await interaction.response.send_message("ℹ️ 目前沒有正在播放的音訊", ephemeral=True)
 
     @discord.ui.button(label="重複: 開", style=discord.ButtonStyle.green, emoji="🔁")
     async def toggle_loop(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -441,92 +439,109 @@ class PlayerControlView(discord.ui.View):
     @discord.ui.button(label="停止/退出", style=discord.ButtonStyle.red, emoji="⏹️")
     async def stop_player(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_looping = False
+        self.manual_stop = True
         if self.ctx.voice_client:
             self.ctx.voice_client.stop()
             await self.ctx.voice_client.disconnect()
             await interaction.response.send_message("⏹️ 已停止播放並斷開連線", ephemeral=True)
-        else:
-            await interaction.response.send_message("❌ 機器人已不在頻道中", ephemeral=True)
 
     @discord.ui.button(label="重新連結", style=discord.ButtonStyle.gray, emoji="🔧")
     async def reconnect_vc(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.ctx.author.voice:
             try:
-                if self.ctx.voice_client:
-                    await self.ctx.voice_client.disconnect(force=True)
+                if self.ctx.voice_client: await self.ctx.voice_client.disconnect(force=True)
                 await self.ctx.author.voice.channel.connect(reconnect=True)
                 await interaction.response.send_message("✅ 已強制重新連接語音端點", ephemeral=True)
             except Exception as e:
                 await interaction.response.send_message(f"❌ 重連失敗: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message("⚠️ 你必須在語音頻道內才能使用重連", ephemeral=True)
+
+bgm_enabled = False
+is_switching = False
+BGM_URL = "https://soundcloud.com/undertale-ost/memory"
+
+async def play_bgm(ctx):
+    if is_switching or not bgm_enabled or not ctx.voice_client or ctx.voice_client.is_playing():
+        return
+    opts = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn -ar 48000 -ac 2 -b:a 128k -af "volume=0.1" -async 1'
+    }
+    try:
+        with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True}) as ydl:
+            info = ydl.extract_info(BGM_URL, download=False)
+            audio_url = info['url']
+        source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **opts)
+        def after_bgm(error):
+            if not is_switching and bgm_enabled and ctx.voice_client and not ctx.voice_client.is_playing():
+                bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
+        ctx.voice_client.play(source, after=after_bgm)
+    except: pass
+
+@bot.command(name="background_music")
+async def background_music(ctx, mode: str):
+    global bgm_enabled
+    if not await is_me(ctx): return
+    if mode.lower() == "on":
+        bgm_enabled = True
+        await ctx.send("✅ 背景音樂已開啟", ephemeral=True)
+        if ctx.voice_client and not ctx.voice_client.is_playing():
+            await play_bgm(ctx)
+    elif mode.lower() == "off":
+        bgm_enabled = False
+        await ctx.send("❌ 背景音樂已關閉", ephemeral=True)
+
+@bot.command(name="stop_music")
+async def stop_music(ctx):
+    if not await is_me(ctx): return
+    if ctx.voice_client:
+        ctx.voice_client.stop()
+        await ctx.send("⏹️ 已停止播放")
 
 @bot.command(name="play_music")
 async def p(ctx, *, url):
+    global is_switching
+    if not await is_me(ctx): return
     if not ctx.voice_client:
         if ctx.author.voice:
-            try:
-                await ctx.author.voice.channel.connect(reconnect=True, timeout=20)
-            except Exception as e:
-                return await ctx.send(f"❌ 無法進入頻道: `{e}`")
-        else:
-            return await ctx.send("⚠️ 請先進入語音頻道")
+            try: await ctx.author.voice.channel.connect(reconnect=True, timeout=20)
+            except Exception as e: return await ctx.send(f"❌ 無法進入頻道: `{e}`")
+        else: return await ctx.send("⚠️ 請先進入語音頻道")
 
+    is_switching = True
     if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
         ctx.voice_client.stop()
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.8)
         
     ffmpeg_opts = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-        'options': (
-            '-vn '
-            '-ar 48000 '
-            '-ac 2 '
-            '-b:a 256k '           
-            '-packet_loss 5 '      
-            '-af "volume=0.9" '     
-            '-async 1 '
-            '-frame_duration 20 '   
-            '-preset veryfast'       
-        )
+        'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
     }
 
     async def silent_play(target_url, current_view):
-        if not ctx.voice_client or not ctx.voice_client.is_connected():
-            return
-        ytdl_opts = {
-            'format': 'bestaudio/best',
-            'noplaylist': True,
-            'quiet': True,
-            'no_warnings': True,
-            'nocheckcertificate': True,
-            'extract_flat': False
-        }
+        global is_switching
+        if not ctx.voice_client or not ctx.voice_client.is_connected(): return
         try:
-            with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
+            with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True}) as ydl:
                 info = ydl.extract_info(target_url, download=False)
                 audio_url = info.get('url') or info['entries'][0]['url']
             source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **ffmpeg_opts)
             def loop_after(error):
+                if current_view.manual_stop or is_switching: return
                 if current_view.is_looping and ctx.voice_client:
-                    bot.loop.call_soon_threadsafe(
-                        lambda: bot.loop.create_task(silent_play(target_url, current_view))
-                    )
+                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(target_url, current_view)))
                 elif bgm_enabled and ctx.voice_client:
-                    bot.loop.call_soon_threadsafe(
-                        lambda: bot.loop.create_task(play_bgm(ctx))
-                    )
-            if ctx.voice_client:
-                ctx.voice_client.play(source, after=loop_after)
-        except:
+                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
+            ctx.voice_client.play(source, after=loop_after)
+            is_switching = False
+        except: 
+            is_switching = False
             if current_view.is_looping and ctx.voice_client:
                 await asyncio.sleep(5)
                 bot.loop.create_task(silent_play(target_url, current_view))
 
     async with ctx.typing():
-        ytdl_opts = {'format': 'bestaudio/best', 'noplaylist': True, 'quiet': True}
         try:
-            with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
+            with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True}) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if 'entries' in info: info = info['entries'][0]
                 audio_url = info['url']
@@ -536,15 +551,13 @@ async def p(ctx, *, url):
             view = PlayerControlView(ctx, url)
             source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **ffmpeg_opts)
             def initial_after(error):
+                if is_switching: return
                 if view.is_looping and ctx.voice_client:
-                    bot.loop.call_soon_threadsafe(
-                        lambda: bot.loop.create_task(silent_play(url, view))
-                    )
+                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(url, view)))
                 elif bgm_enabled and ctx.voice_client:
-                    bot.loop.call_soon_threadsafe(
-                        lambda: bot.loop.create_task(play_bgm(ctx))
-                    )
+                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
             ctx.voice_client.play(source, after=initial_after)
+            is_switching = False
             embed = discord.Embed(title="🎵 正在播放", color=0x3498db)
             embed.add_field(name="🎵 歌名", value=f"[{title}]({url})", inline=False)
             embed.add_field(name="📤 上傳者", value=uploader, inline=True)
@@ -554,53 +567,8 @@ async def p(ctx, *, url):
             embed.set_footer(text="🔄 自動循環已啟用")
             await ctx.send(embed=embed, view=view)
         except Exception as e:
-            msg = str(e)
-            if "confirm you're not a bot" in msg:
-                await ctx.send("❌ YouTube 不喜歡我們占用資源，請換 SoundCloud 連結試試。")
-            else:
-                await ctx.send(f"❌ 解析失敗: `{msg[:100]}`")
-                
-@bot.command(name="stop_music")
-async def stop_music(ctx):
-    if not await is_me(ctx): return
-    if ctx.voice_client and ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-        await ctx.send("⏹️ 已停止播放")
-
-bgm_enabled = False
-BGM_URL = "https://soundcloud.com/undertale-ost/memory"
-
-async def play_bgm(ctx):
-    if not bgm_enabled or not ctx.voice_client or ctx.voice_client.is_playing():
-        return
-    bgm_ffmpeg_opts = {
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-        'options': '-vn -ar 48000 -ac 2 -b:a 128k -af "volume=0.1" -async 1'
-    }
-    try:
-        ytdl_opts = {'format': 'bestaudio/best', 'quiet': True}
-        with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
-            info = ydl.extract_info(BGM_URL, download=False)
-            audio_url = info['url']
-        source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **bgm_ffmpeg_opts)
-        def after_bgm(error):
-            if bgm_enabled and ctx.voice_client and not ctx.voice_client.is_playing():
-                bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
-        ctx.voice_client.play(source, after=after_bgm)
-    except:
-        pass
-
-@bot.command(name="background_music")
-async def background_music(ctx, mode: str):
-    global bgm_enabled
-    if mode.lower() == "on":
-        bgm_enabled = True
-        await ctx.send("✅ 背景音樂已開啟", ephemeral=True)
-        if ctx.voice_client and not ctx.voice_client.is_playing():
-            await play_bgm(ctx)
-    elif mode.lower() == "off":
-        bgm_enabled = False
-        await ctx.send("❌ 背景音樂已關閉", ephemeral=True)
+            is_switching = False
+            await ctx.send(f"❌ 解析失敗: `{str(e)[:100]}`")
 
 @bot.event
 async def on_message(message):
