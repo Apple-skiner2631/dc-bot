@@ -464,7 +464,7 @@ async def play_bgm(ctx):
         return
     opts = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-        'options': '-vn -ar 48000 -ac 2 -b:a 128k -af "volume=0.1" -async 1'
+        'options': '-vn -ar 48000 -ac 2 -b:a 128k -af "volume=0.5" -async 1'
     }
     try:
         with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True}) as ydl:
