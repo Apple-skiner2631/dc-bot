@@ -409,9 +409,6 @@ async def dc(ctx):
         try: await ctx.voice_client.disconnect()
         except: pass
 
-按照你的要求，將代碼邏輯拆分為三部分：View 類別、全域設定與背景音樂邏輯、以及 Play 主指令。
-1. PlayerControlView (按鈕控制面板)
-Python
 
 class PlayerControlView(discord.ui.View):
     def __init__(self, ctx, url):
