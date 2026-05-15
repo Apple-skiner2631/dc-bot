@@ -459,7 +459,7 @@ class PlayerControlView(discord.ui.View):
             except Exception as e:
                 await interaction.response.send_message(f"❌ 重連失敗: {e}", ephemeral=True)
         else:
-            await interaction.response.send_message("⚠️ 你必須在語音頻道內才能使用重連", ephemer
+            await interaction.response.send_message("⚠️ 你必須在語音頻道內才能使用重連", ephemeral=True)
 
 @bot.command(name="play_music")
 async def p(ctx, *, url):
