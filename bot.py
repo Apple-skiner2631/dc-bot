@@ -106,6 +106,7 @@ async def help_msg(ctx):
             "`!leave_vc` - 退出語音頻道\n"
             "`!play_music [URL]` - 播放SoundCloud 或是DropBox 音訊\n"
             "`!stop_music` - 停止播放音樂\n"
+            "`!background_music [on/off]` - 開始或停止播放背景音樂\n"
         ),
         inline=False
     )
@@ -459,6 +460,9 @@ class PlayerControlView(discord.ui.View):
         else:
             await interaction.response.send_message("⚠️ 你必須在語音頻道內才能使用重連", ephemeral=True)
 
+bgm_enabled = False
+BGM_URL = "https://soundcloud.com/undertale-ost/memory"
+
 @bot.command(name="play_music")
 async def p(ctx, *, url):
     if not ctx.voice_client:
@@ -571,7 +575,47 @@ async def stop_music(ctx):
     if ctx.voice_client and ctx.voice_client.is_playing():
         ctx.voice_client.stop()
         await ctx.send("⏹️ 已停止播放")
-    
+
+@bot.command(name="background_music")
+async def background_music(ctx, mode: str):
+    global bgm_enabled
+    if mode.lower() == "on":
+        bgm_enabled = True
+        await ctx.send("✅ 背景音樂模式已開啟。當音樂結束時，將自動播放背景音樂。")
+
+        if ctx.voice_client and not ctx.voice_client.is_playing():
+            await play_bgm(ctx)
+    elif mode.lower() == "off":
+        bgm_enabled = False
+        await ctx.send("❌ 背景音樂模式已關閉。")
+    else:
+        await ctx.send("⚠️ 請使用 `!background_music on` 或 `off`")
+
+async def play_bgm(ctx):
+    if not bgm_enabled or not ctx.voice_client:
+        return
+
+    bgm_ffmpeg_opts = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn -ar 48000 -ac 2 -b:a 128k -af "volume=0.3" -async 1'
+    }
+
+    ytdl_opts = {'format': 'bestaudio/best', 'quiet': True}
+    try:
+        with yt_dlp.YoutubeDL(ytdl_opts) as ydl:
+            info = ydl.extract_info(BGM_URL, download=False)
+            audio_url = info['url']
+        
+        source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **bgm_ffmpeg_opts)
+        
+        def after_bgm(error):
+            if bgm_enabled:
+                bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
+
+        ctx.voice_client.play(source, after=after_bgm)
+    except:
+        pass
+
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
