@@ -457,7 +457,7 @@ class PlayerControlView(discord.ui.View):
 
 bgm_enabled = False
 is_switching = False
-BGM_URL = "https://soundcloud.com/lucas-shearer-913642639/sets/minecraft-soundtrack-disc?si=ac98764799c848a2bb7dd0f5fc41ca76&utm_source=clipboard&utm_medium=text&utm_campaign=social_sharing"
+BGM_URL = "https://soundcloud.com/lucas-shearer-913642639/sets/minecraft-soundtrack-disc"
 
 async def play_bgm(ctx):
     if is_switching or not bgm_enabled or not ctx.voice_client or ctx.voice_client.is_playing():
