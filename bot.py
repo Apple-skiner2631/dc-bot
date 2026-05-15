@@ -473,8 +473,8 @@ async def p(ctx, *, url):
     if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
         ctx.voice_client.stop()
         await asyncio.sleep(0.5)
-
-   ffmpeg_opts = {
+        
+    ffmpeg_opts = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         'options': (
             '-vn '
@@ -487,7 +487,7 @@ async def p(ctx, *, url):
             '-frame_duration 20 '   
             '-preset veryfast'       
         )
- }
+    }
 
     async def silent_play(target_url, current_view):
         if not ctx.voice_client or not ctx.voice_client.is_connected():
