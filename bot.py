@@ -412,7 +412,7 @@ async def dc(ctx):
 
 bgm_enabled = False
 is_switching = False
-BGM_URL = "https://soundcloud.com/lucas-shearer-913642639/sets/minecraft-soundtrack-disc"
+BGM_URL = "https://soundcloud.com/ghostly/c418-haggstrom-1?in=lucas-shearer-913642639/sets/minecraft-soundtrack-disc"
 
 class PlayerControlView(discord.ui.View):
     def __init__(self, ctx, url, title, duration, uploader):
@@ -463,6 +463,7 @@ class PlayerControlView(discord.ui.View):
         if self.ctx.voice_client:
             self.ctx.voice_client.stop()
             await interaction.response.send_message("⏹️ 已停止播放", ephemeral=True)
+            await asyncio.sleep(1)
             bot.loop.create_task(play_bgm(self.ctx))
         else:
             await interaction.response.send_message("❌ 機器人已不在頻道中", ephemeral=True)
@@ -504,8 +505,8 @@ async def play_bgm(ctx):
                 return ydl.extract_info(BGM_URL, download=False)
         
         info = await bot.loop.run_in_executor(None, fetch_bgm)
-        url = info.get('url') or info['entries'][0]['url']
-        source = await discord.FFmpegOpusAudio.from_probe(url, executable=ffmpeg_exe, **bgm_ffmpeg_opts)
+        audio_url = info.get('url') or info['entries'][0]['url']
+        source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **bgm_ffmpeg_opts)
         
         def after_bgm(error):
             if bgm_enabled and ctx.voice_client and not ctx.voice_client.is_playing() and not is_switching:
@@ -531,7 +532,7 @@ async def p(ctx, *, url):
     is_switching = True
     if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
         ctx.voice_client.stop()
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1)
 
     ffmpeg_opts = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
@@ -557,7 +558,8 @@ async def p(ctx, *, url):
                 else:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
 
-            ctx.voice_client.play(source, after=loop_after)
+            if ctx.voice_client:
+                ctx.voice_client.play(source, after=loop_after)
             is_switching = False
         except:
             is_switching = False
@@ -586,19 +588,22 @@ async def p(ctx, *, url):
                 else:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
 
-            ctx.voice_client.play(source, after=initial_after)
+            if ctx.voice_client:
+                ctx.voice_client.play(source, after=initial_after)
             is_switching = False
             await ctx.send(embed=view._get_embed(), view=view)
-        except:
+        except Exception as e:
             is_switching = False
-            await play_bgm(ctx)
+            await ctx.send(f"❌ 播放失敗: `{str(e)[:100]}`")
+            bot.loop.create_task(play_bgm(ctx))
 
 @bot.command(name="stop_music")
 async def stop_music(ctx):
     if ctx.voice_client:
         ctx.voice_client.stop()
         await ctx.send("⏹️ 已停止播放")
-        await play_bgm(ctx)
+        await asyncio.sleep(1)
+        bot.loop.create_task(play_bgm(ctx))
 
 @bot.command(name="background_music")
 async def background_music(ctx, mode: str):
