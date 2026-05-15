@@ -473,9 +473,10 @@ async def p(ctx, *, url):
     if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
         ctx.voice_client.stop()
         await asyncio.sleep(0.5)
+
     ffmpeg_opts = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-        'options': '-vn -ar 48000 -ac 2 -b:a 128k -bufsize 128k -af "volume=0.9" -async 1'
+        'options': '-vn -ar 48000 -ac 2 -b:a 320k -bufsize 512k -af "volume=1.0" -async 1 -compression_level 0'
     }
 
     async def silent_play(target_url, current_view):
@@ -553,6 +554,7 @@ async def p(ctx, *, url):
                 await ctx.send("❌ YouTube 不喜歡我們占用資源，請換 SoundCloud 連結試試。")
             else:
                 await ctx.send(f"❌ 解析失敗: `{msg[:100]}`")
+                
 @bot.command(name="stop_music")
 async def stop_music(ctx):
     if not await is_me(ctx): return
