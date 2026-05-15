@@ -487,7 +487,7 @@ async def p(ctx, *, url):
             '-frame_duration 20 '   
             '-preset veryfast'       
         )
-    }
+ }
 
     async def silent_play(target_url, current_view):
         if not ctx.voice_client or not ctx.voice_client.is_connected():
