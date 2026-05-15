@@ -12,6 +12,7 @@ import io
 import ctypes
 import shutil
 import yt_dlp
+import functools
 import ffmpeg_downloader
 import davey
 from discord import opus
@@ -466,7 +467,7 @@ class PlayerControlView(discord.ui.View):
         else:
             await interaction.response.send_message("❌ 機器人已不在頻道中", ephemeral=True)
 
-    @discord.ui.button(label="退出頻道", style=discord.ButtonStyle.red, emoji="🚪")
+    @discord.ui.button(label="退出頻道", style=discord.ButtonStyle.red, emoji="門")
     async def leave_vc(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_looping = False
         self.manual_stop = True
@@ -481,7 +482,7 @@ class PlayerControlView(discord.ui.View):
                 if self.ctx.voice_client:
                     await self.ctx.voice_client.disconnect(force=True)
                 await self.ctx.author.voice.channel.connect(reconnect=True)
-                await interaction.response.send_message("✅ 已強制重新連接語音端點", ephemeral=True)
+                await interaction.response.send_message("✅ 已強制重新連接語音頻道", ephemeral=True)
             except Exception as e:
                 await interaction.response.send_message(f"❌ 重連失敗: {e}", ephemeral=True)
         else:
@@ -499,8 +500,9 @@ async def play_bgm(ctx):
 
     try:
         def fetch_bgm():
-            with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True}) as ydl:
+            with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True, 'noplaylist': True}) as ydl:
                 return ydl.extract_info(BGM_URL, download=False)
+        
         info = await bot.loop.run_in_executor(None, fetch_bgm)
         audio_url = info.get('url') or info['entries'][0]['url']
         source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **bgm_ffmpeg_opts)
@@ -550,8 +552,9 @@ async def p(ctx, *, url):
         if not ctx.voice_client: return
         try:
             def fetch_info():
-                with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True}) as ydl:
+                with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True, 'noplaylist': True}) as ydl:
                     return ydl.extract_info(target_url, download=False)
+            
             info = await bot.loop.run_in_executor(None, fetch_info)
             audio_url = info.get('url') or info['entries'][0]['url']
             source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **ffmpeg_opts)
@@ -574,8 +577,9 @@ async def p(ctx, *, url):
     async with ctx.typing():
         try:
             def fetch_initial():
-                with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True}) as ydl:
+                with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True, 'noplaylist': True}) as ydl:
                     return ydl.extract_info(url, download=False)
+            
             info = await bot.loop.run_in_executor(None, fetch_initial)
             if 'entries' in info: info = info['entries'][0]
             
@@ -601,7 +605,7 @@ async def p(ctx, *, url):
 
         except Exception as e:
             is_switching = False
-            await ctx.send(f"❌ 解析失敗 YouTube 不喜歡我們占用資源，請換 SoundCloud 連結試試。: `{str(e)[:100]}`")
+            await ctx.send(f"❌ 播放失敗: `{str(e)[:100]}`")
             await play_bgm(ctx)
 
 @bot.command(name="stop_music")
@@ -625,7 +629,7 @@ async def background_music(ctx, mode: str):
         if ctx.voice_client:
             ctx.voice_client.stop()
         await ctx.send("❌ 背景音樂模式已關閉。")
-
+        
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
