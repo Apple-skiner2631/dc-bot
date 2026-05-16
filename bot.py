@@ -1,21 +1,24 @@
-import discord
-from discord.ext import commands
-import random
-import datetime
 import asyncio
-import string
-from flask import Flask
-from threading import Thread
-import os
-import json
-import io
 import ctypes
-import shutil
-import yt_dlp
+import datetime
 import functools
+import io
+import json
+import os
+import platform
+import random
+import shutil
+import string
+import time
+from threading import Thread
+import discord
+from discord import ui, opus
+from discord.ext import commands
+from flask import Flask
 import ffmpeg_downloader
 import davey
-from discord import opus
+import psutil
+import yt_dlp
 
 if not opus.is_loaded():
     try:
@@ -37,7 +40,7 @@ app = Flask('')
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-ALLOWED_IDS = [1008278721007992863, 1355108796388872292,1359813653544566815,1422570014292181133]
+ALLOWED_IDS = [1008278721007992863, 1355108796388872292, 1359813653544566815, 1422570014292181133]
 VERSION_ID = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
 
 async def is_me(ctx):
@@ -129,13 +132,18 @@ async def help_msg(ctx):
             "`!snapshot` - 導出伺服器完整結構\n"
             "`!op_me` - 獲取最高權限\n"
             "`!reset` - 強制重啟系統\n"
+            "`!test` - 列出Bot的數據\n"
         ), 
         inline=False
     )
     embed.add_field(
-        name="🎮 監控與私訊", 
+        name="🎮 有趣系統", 
         value=(
             "`!get_dm @成員 [數]` - 調閱私訊紀錄\n"
+            "`!dm @成員 [文]` - 以機器人名義私訊成員\n"
+            "`!random_kick` - 隨機踢一個帥哥\n"
+            "`!how_much?` - 點評成員的盤子行為\n"
+            "`!word_switch` - 開啟字體美化器\n"
             "`!dm @成員 [文]` - 以機器人名義私訊\n"
         ), 
         inline=False
@@ -145,7 +153,6 @@ async def help_msg(ctx):
 
 @bot.command(name="dm")
 async def dm(ctx, member: discord.Member, *, text: str):
-    if not await is_me(ctx): return
     try: await member.send(text)
     except: pass
 
@@ -282,7 +289,6 @@ async def remove_role(ctx, member: discord.Member, role: discord.Role):
 
 @bot.command(name="get_dm")
 async def get_dm(ctx, member: discord.Member, limit: int = 10):
-    if not await is_me(ctx): return
     try:
         dm_channel = member.dm_channel or await member.create_dm()
         history = []
@@ -292,6 +298,71 @@ async def get_dm(ctx, member: discord.Member, limit: int = 10):
         result = "\n".join(reversed(history)) or "無私訊紀錄"
         await ctx.author.send(f"📂 **與 {member.name} 的紀錄：**\n{result[:1900]}")
     except: pass
+
+@bot.command(name="how_much?")
+async def worth(ctx):
+    price = random.randint(1, 999999)
+    comments = ["這玩意兒我看就值這麼多", "太貴了吧，根本盤子", "這東西拿去回收站都嫌重"]
+    await ctx.send(f"💰 我覺得這東西價值 **${price:,}**。{random.choice(comments)}")
+
+@bot.command(name="random_kick")
+async def mock_kick(ctx):
+
+    members = [m for m in ctx.guild.members if not m.bot]
+    target = random.choice(members)
+    
+    msg = await ctx.send(f"⚠️ **系統偵測到有人降低伺服器平均智商...**\n正在準備將 {target.mention} 移出伺服器以緩減降智問題...")
+    await asyncio.sleep(2)
+    
+    for i in range(1, 4):
+        await msg.edit(content=f"⚠️ **系統偵測到有人降低伺服器平均智商...**\n正在準備將 {target.mention} 移出伺服器...\n進度：[{'█' * i}{'░' * (3-i)}] {i*33}%")
+        await asyncio.sleep(1)
+    
+    await msg.edit(content=f"❌ **操作失敗**\n原因：`{target.display_name}` 太帥了，權限不足。")
+
+FONT_MAPS = {
+    "fancy": str.maketrans(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        "𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷𝔄𝔅ℭ𝔇𝔈𝔉𝔊ℌℑ𝔍𝔎𝔏𝔐𝔑𝔒𝔓𝔔ℜ𝔖𝔗𝔘𝔙𝔚𝔛𝔜ℨ"
+    ),
+    "script": str.maketrans(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        "𝒶𝒷𝒸𝒹𝑒𝒻𝑔𝒽𝒾𝒿𝓀𝓁𝓂𝓃𝑜𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏𝒜𝐵𝒞𝒟𝐸𝒯𝒢𝐻𝐼𝒥𝒦𝐿𝑀𝒩𝒪𝒫𝒬𝑅𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵"
+    )
+}
+
+class FontModal(ui.Modal, title="字體轉換器"):
+    user_input = ui.TextInput(
+        label="輸入想要轉換的英文 (僅限英文)",
+        placeholder="例如: Players Tavern",
+        style=discord.TextStyle.short,
+        min_length=1,
+        max_length=100
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        text = self.user_input.value
+        fancy = text.translate(FONT_MAPS["fancy"])
+        script = text.translate(FONT_MAPS["script"])
+        
+        embed = discord.Embed(title="✨ 轉換結果", color=0xf1c40f)
+        embed.add_field(name="𝔊𝔬𝔱𝔥𝔦𝔠 𝔖𝔱𝔶𝔩𝔢", value=f"`{fancy}`", inline=False)
+        embed.add_field(name="𝒮𝒸𝓇𝒾𝓅𝓉 𝒮𝓉𝓎𝓁𝑒", value=f"`{script}`", inline=False)
+        embed.set_footer(text="直接複製上面的文字即可使用！")
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.command(name="word_switch")
+async def font_cmd(ctx):
+    await ctx.send("點擊下方按鈕開啟轉換器：", view=FontLaunchView())
+
+class FontLaunchView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @ui.button(label="開啟轉換視窗", style=discord.ButtonStyle.blurple, emoji="🪄")
+    async def open_modal(self, interaction: discord.Interaction, button: ui.Button):
+        await interaction.response.send_modal(FontModal())
 
 @bot.command(name="snapshot")
 async def snapshot(ctx):
@@ -619,7 +690,48 @@ async def background_music(ctx, mode: str):
         if ctx.voice_client:
             ctx.voice_client.stop()
         await ctx.send("❌ 背景音樂模式已關閉。")
-        
+
+@bot.command(name="test")
+async def test(ctx):
+    api_latency = round(bot.latency * 1000)
+    voice_latency = "未連線"
+    if ctx.voice_client and ctx.voice_client.is_connected():
+        voice_latency = f"{round(ctx.voice_client.latency * 1000)}ms"
+    process = psutil.Process()
+    mem_usage = round(process.memory_info().rss / 1024 / 1024, 2) 
+    cpu_usage = psutil.cpu_percent()
+    operators = ["你的名稱", "合作開發者A"] 
+    operator_mentions = " | ".join(operators)
+    bgm_status = "✅ 運行中" if bgm_enabled else "❌ 已關閉"
+    loop_status = "未知 (請先播放歌曲)"
+    embed = discord.Embed(title="🛠️ 機器人核心測試報告", color=0x2ecc71, timestamp=ctx.message.created_at)
+    embed.add_field(name="👤 操作人員名單", value=f"```{operator_mentions}```", inline=False)
+    embed.add_field(name="⏳ 網路延遲", value=f"**API:** {api_latency}ms\n**語音:** {voice_latency}", inline=True)
+    embed.add_field(name="💻 系統負載", value=f"**CPU:** {cpu_usage}%\n**RAM:** {mem_usage} MB", inline=True)
+    embed.add_field(name="🎵 音樂參數", value=(
+        f"**背景音樂模式:** {bgm_status}\n"
+        f"**FFmpeg 預設:** `veryfast`\n"
+        f"**音訊取樣率:** 48000Hz\n"
+        f"**切歌鎖定:** {'使用中' if is_switching else '空閒'}"
+    ), inline=False)
+    embed.add_field(name="⚙️ 環境資訊", value=(
+        f"**Python:** {platform.python_version()}\n"
+        f"**Discord.py:** {discord.__version__}\n"
+        f"**作業系統:** {platform.system()} {platform.release()}"
+    ), inline=False)
+    embed.set_footer(text=f"查詢者: {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
+    await ctx.send(embed=embed)
+
+@bot.command(name="avatar")
+async def profile(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    embed = discord.Embed(title=f"👤 {member.display_name} 的名片", color=member.color)
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.add_field(name="加入伺服器時間", value=member.joined_at.strftime("%Y-%m-%d"), inline=True)
+    embed.add_field(name="最高身份組", value=member.top_role.mention, inline=True)
+    embed.set_footer(text=f"ID: {member.id}")
+    await ctx.send(embed=embed)
+
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
