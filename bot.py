@@ -732,6 +732,54 @@ async def profile(ctx, member: discord.Member = None):
     embed.set_footer(text=f"ID: {member.id}")
     await ctx.send(embed=embed)
 
+
+@bot.command(name='play_live')
+async def play_live(ctx, *, url: str):
+    if not ctx.author.voice:
+        return await ctx.send("❌ 你必須先加入一個語音頻道！")
+        
+    voice_channel = ctx.author.voice.channel
+    
+    if ctx.voice_client is None:
+        vc = await voice_channel.connect()
+    else:
+        vc = ctx.voice_client
+
+    await ctx.send("🔍 正在解析直播串流，請稍候...")
+
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'quiet': True,
+        'noplaylist': True,
+        'skip_download': True,
+    }
+
+    FFMPEG_LIVE_OPTIONS = {
+        'options': '-vn',
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -live_start_index -1'
+    }
+
+    loop = asyncio.get_event_loop()
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = await loop.run_in_executor(None, lambda: ydl.extract_info(url, download=False))
+            stream_url = info['url']
+            title = info.get('title', '未知直播')
+    except Exception as e:
+        return await ctx.send(f"❌ 直播解析失敗：{e}")
+
+    if vc.is_playing():
+        vc.stop()
+
+    try:
+        source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_LIVE_OPTIONS)
+        vc.play(source)
+        await ctx.send(f"🔴 **正在現場直播**：{title}")
+    except Exception as e:
+        await ctx.send(f"❌ 播放直播時發生錯誤：{e}")
+
+
+
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
