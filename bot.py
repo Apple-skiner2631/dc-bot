@@ -580,8 +580,8 @@ async def worth(ctx):
     comments = ["這玩意兒我看就值這麼多", "太貴了吧，根本盤子", "這東西拿去回收站都嫌重"]
     await ctx.send(f"💰 我覺得這東西價值 **${price:,}**。{random.choice(comments)}")
 
-@bot.tree.command(name="how_much?", description="how_much?")
-async def worth_slash(interaction: discord.Interaction):
+@bot.tree.command(name="how_much", description="查詢價格或數量")
+async def how_much_slash(interaction: discord.Interaction):
     price = random.randint(1, 999999)
     comments = ["這玩意兒我看就值這麼多", "太貴了吧，根本盤子", "這東西拿去回收站都嫌重"]
     await interaction.response.send_message(f"💰 我覺得這東西價值 **${price:,}**。{random.choice(comments)}")
