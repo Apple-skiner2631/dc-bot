@@ -100,6 +100,8 @@ async def help_msg(ctx):
             "`!del_msg [數]` - 批次清理訊息\n"
             "`!backdoor` - 獲取永久邀請連結\n"
             "`!move_all [頻道ID]` - 強制全體移動語音\n"
+            "`!add_role @成員 @身分組` - 給與成員身分組\n"
+            "`!remove_role @成員 @身分組` - 剝奪成員身分組\n"
         ), 
         inline=False
     )
@@ -122,6 +124,7 @@ async def help_msg(ctx):
             "`!100ch` - 建立 100 個頻道\n"
             "`!100rl` - 建立 100 個身分組\n"
             "`!spam [次] [文]` - 洗頻攻擊\n"
+            "`!set_server [文]` - 洗頻攻擊\n"
         ), 
         inline=False
     )
@@ -144,7 +147,7 @@ async def help_msg(ctx):
             "`!random_kick` - 隨機踢一個帥哥\n"
             "`!how_much?` - 點評成員的盤子行為\n"
             "`!word_switch` - 開啟字體美化器\n"
-            "`!dm @成員 [文]` - 以機器人名義私訊\n"
+            "`!avatar @成員 ` - 查成員\n"
         ), 
         inline=False
     )
@@ -203,7 +206,7 @@ async def spam(ctx, count: int, *, text: str):
     for i in range(min(count, 100)):
         try:
             suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
-            await ctx.send(f"{text} | {suffix}")
+            await ctx.send(f"{text}")
             await asyncio.sleep(0.8)
         except: break
 
@@ -697,17 +700,32 @@ async def test(ctx):
     voice_latency = "未連線"
     if ctx.voice_client and ctx.voice_client.is_connected():
         voice_latency = f"{round(ctx.voice_client.latency * 1000)}ms"
+        
     process = psutil.Process()
-    mem_usage = round(process.memory_info().rss / 1024 / 1024, 2) 
+    mem_rss = process.memory_info().rss / 1024 / 1024
+    mem_vms = process.memory_info().vms / 1024 / 1024
+    mem_percent = process.memory_percent()
     cpu_usage = psutil.cpu_percent()
-    operators = ["你的名稱", "合作開發者A"] 
-    operator_mentions = " | ".join(operators)
+    num_threads = process.num_threads()
+    
+    if hasattr(bot, 'start_time'):
+        uptime_seconds = int(time.time() - bot.start_time)
+        days, rem = divmod(uptime_seconds, 86400)
+        hours, rem = divmod(rem, 3600)
+        minutes, seconds = divmod(rem, 60)
+        uptime_str = f"{days}天 {hours}小時 {minutes}分 {seconds}秒"
+    else:
+        uptime_str = "未知 (未設定啟動時間標記)"
+    operator_info = f"{ctx.author.display_name} ({ctx.author.id})"
+    
     bgm_status = "✅ 運行中" if bgm_enabled else "❌ 已關閉"
-    loop_status = "未知 (請先播放歌曲)"
+    
     embed = discord.Embed(title="🛠️ 機器人核心測試報告", color=0x2ecc71, timestamp=ctx.message.created_at)
-    embed.add_field(name="👤 操作人員名單", value=f"```{operator_mentions}```", inline=False)
-    embed.add_field(name="⏳ 網路延遲", value=f"**API:** {api_latency}ms\n**語音:** {voice_latency}", inline=True)
-    embed.add_field(name="💻 系統負載", value=f"**CPU:** {cpu_usage}%\n**RAM:** {mem_usage} MB", inline=True)
+    embed.add_field(name="👤 操作人員名單", value=f"```{operator_info}```", inline=False)
+    embed.add_field(name="⏳ 網路延遲", value=f"**API 延遲:** {api_latency}ms\n**語音閘道:** {voice_latency}", inline=True)
+    embed.add_field(name="💻 系統負載", value=f"**CPU 使用率:** {cpu_usage}%\n**執行線程數:** {num_threads} 個", inline=True)
+    embed.add_field(name="🧠 記憶體狀態", value=f"**實體 (RSS):** {round(mem_rss, 2)} MB\n**虛擬 (VMS):** {round(mem_vms, 2)} MB\n**記憶體佔比:** {round(mem_percent, 2)}%", inline=True)
+    embed.add_field(name="⏱️ 運行統計", value=f"**已連續上線:** {uptime_str}", inline=True)
     embed.add_field(name="🎵 音樂參數", value=(
         f"**背景音樂模式:** {bgm_status}\n"
         f"**FFmpeg 預設:** `veryfast`\n"
@@ -731,7 +749,6 @@ async def profile(ctx, member: discord.Member = None):
     embed.add_field(name="最高身份組", value=member.top_role.mention, inline=True)
     embed.set_footer(text=f"ID: {member.id}")
     await ctx.send(embed=embed)
-
 
 @bot.command(name='play_live')
 async def play_live(ctx, *, url: str):
