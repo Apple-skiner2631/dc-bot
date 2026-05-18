@@ -657,7 +657,7 @@ class FontLaunchView(ui.View):
     async def open_modal(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(FontModal())
 
-@@bot.command(name="snapshot")
+@bot.command(name="snapshot")
 async def snapshot(ctx):
     if ctx.author.id not in ALLOWED_IDS: return
     await ctx.author.send("🚀 正在生成伺服器備份...")
