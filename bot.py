@@ -86,7 +86,16 @@ async def on_ready():
         await bot.tree.sync()
     except:
         pass
-        
+
+@bot.event
+async def on_ready():
+    print(f"機器人已成功連線：{bot.user}")
+    try:
+        synced = await bot.tree.sync()
+        print(f"成功同步了 {len(synced)} 個斜線指令！")
+    except Exception as e:
+        print(f"同步斜線指令時發生錯誤：{e}")
+
 @bot.command(name="help")
 async def help_msg(ctx):
     if not await is_me(ctx): return
