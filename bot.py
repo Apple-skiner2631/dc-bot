@@ -598,15 +598,20 @@ async def mock_kick(ctx):
 
 @bot.tree.command(name="random_kick", description="隨機恐嚇將一個人踢出伺服器-[僅授權人員可用!]")
 async def mock_kick_slash(interaction: discord.Interaction):
-        if interaction.user.id not in ALLOWED_IDS: return
+    if interaction.user.id not in ALLOWED_IDS: 
+        return
+        
     members = [m for m in interaction.guild.members if not m.bot]
     target = random.choice(members)
+    
     await interaction.response.send_message(f"⚠️ **系統偵測到有人降低伺服器平均智商...**\n正在準備將 {target.mention} 移出伺服器以緩減降智問題...")
     msg = await interaction.original_response()
     await asyncio.sleep(2)
+    
     for i in range(1, 4):
         await msg.edit(content=f"⚠️ **系統偵測到有人降低伺服器平均智商...**\n正在準備將 {target.mention} 移出伺服器...\n進度：[{'█' * i}{'░' * (3-i)}] {i*33}%")
         await asyncio.sleep(1)
+        
     await msg.edit(content=f"❌ **操作失敗**\n原因：`{target.display_name}` 太帥了，權限不足。")
 
 FONT_MAPS = {
