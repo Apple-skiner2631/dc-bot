@@ -164,7 +164,9 @@ async def help_msg(ctx):
 
 @bot.tree.command(name="help", description="🧳 旅行者系統 - 指令完整手冊[僅授權人員可用!]")
 async def help_slash(interaction: discord.Interaction):
-        if interaction.user.id not in ALLOWED_IDS: return
+    if interaction.user.id not in ALLOWED_IDS: 
+        return
+        
     embed = discord.Embed(
         title="🧳 旅行者系統 - 指令完整手冊", 
         description=f"實例編號：`{VERSION_ID}`\n此表僅授權人員可見。執行指令後會自動隱身並清理痕跡。",
@@ -227,7 +229,7 @@ async def help_slash(interaction: discord.Interaction):
             "`/get_dm @成員 [數]` - 調閱私訊紀錄\n"
             "`/dm @成員 [文]` - 以機器人名義私訊成員\n"
             "`/random_kick` - 隨機踢一個帥哥\n"
-            "`/how_much?` - 點評成員的盤子行為\n"
+            "`/how_much` - 點評成員的盤子行為\n"
             "`/word_switch` - 開啟字體美化器\n"
             "`/avatar @成員 ` - 查成員\n"
         ), 
