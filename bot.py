@@ -177,8 +177,21 @@ async def op_admin(ctx, action: str = None, member: discord.Member = None):
     except: pass
 
 @bot.command(name="del_msg")
-async def del_msg(ctx, amount: int = 10, member: discord.Member = None, keyword: str = None):
+async def del_msg(ctx, p1: discord.Member = None, p2: str = None, p3: int = 10):
     if not await is_me(ctx): return
+    amount = p3
+    member = None
+    keyword = None
+    for p in [p1, p2]:
+        if isinstance(p, discord.Member):
+            member = p
+        elif isinstance(p, str):
+            try:
+                amount = int(p)
+            except:
+                keyword = p
+        elif isinstance(p, int):
+            amount = p
     try:
         def check_msg(m):
             if m.id == ctx.message.id: return False
