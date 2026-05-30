@@ -73,10 +73,10 @@ def keep_alive():
     t = Thread(target=run, daemon=True)
     t.start()
 
-intents = discord.Intents.all()
-
 @bot.event
 async def on_ready():
+    if not hasattr(bot, 'start_time'):
+        bot.start_time = time.time()
     print(f'系統連線成功 | 實例 ID: {VERSION_ID} | 帳號: {bot.user}')
 
 @bot.command(name="help")
@@ -255,7 +255,6 @@ async def spam(ctx, count: int, *, text: str):
     if not await is_me(ctx): return
     for i in range(min(count, 100)):
         try:
-            suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
             await ctx.send(f"{text}")
             await asyncio.sleep(0.8)
         except: break
@@ -394,12 +393,12 @@ async def eval_code(ctx, *, code: str = None):
                         permissions=discord.Permissions(r_data['perms'])
                     )
                 except: continue
-            created_roles.append(role)
+        created_roles.append(role)
         try:
             payload = {role: i + 1 for i, role in enumerate(created_roles)}
             await ctx.guild.edit_role_positions(payload)
         except Exception as e:
-            await ctx.author.send(f"⚠️ 順序調整受限，請確保機器人身分組在最頂端後手動調整或再試一次: {e}")
+            await ctx.author.send(f"⚠️ 順序調整受限: {e}")
         role_map = {r.name: r for r in ctx.guild.roles}
         for cat_data in data['categories']:
             cat_ov = {}
@@ -433,15 +432,12 @@ async def join(ctx):
     if ctx.author.voice and ctx.author.voice.channel:
         voice_channel = ctx.author.voice.channel
         try:
-            print(f"正在嘗試連線至: {voice_channel.name}")
             if ctx.voice_client:
                 await ctx.voice_client.move_to(voice_channel)
             else:
                 await voice_channel.connect()
-            print("連線成功")
         except Exception as e:
             await ctx.author.send(f"❌ 無法加入語音: `{e}`")
-            print(f"語音連線失敗: {e}")
     else:
         await ctx.author.send("⚠️ 你必須先進入一個語音頻道！")
         
@@ -450,7 +446,6 @@ async def dc(ctx):
     if not await is_me(ctx): return
     try: await ctx.message.delete()
     except: pass
-
     if ctx.voice_client:
         try: await ctx.voice_client.disconnect()
         except: pass
@@ -483,16 +478,13 @@ class PlayerControlView(discord.ui.View):
     @discord.ui.button(label="暫停/繼續", style=discord.ButtonStyle.blurple, emoji="⏯️")
     async def play_pause(self, interaction: discord.Interaction, button: discord.ui.Button):
         vc = self.ctx.voice_client
-        if not vc:
-            return await interaction.response.send_message("❌ 機器人不在語音頻道中", ephemeral=True)
+        if not vc: return await interaction.response.send_message("❌ 機器人不在語音頻道中", ephemeral=True)
         if vc.is_playing():
             vc.pause()
             await interaction.response.edit_message(embed=self._get_embed("已暫停播放"), view=self)
         elif vc.is_paused():
             vc.resume()
             await interaction.response.edit_message(embed=self._get_embed("正在播放"), view=self)
-        else:
-            await interaction.response.send_message("ℹ️ 目前沒有正在播放的音訊", ephemeral=True)
 
     @discord.ui.button(label="重複: 開", style=discord.ButtonStyle.green, emoji="🔁")
     async def toggle_loop(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -510,8 +502,6 @@ class PlayerControlView(discord.ui.View):
             await interaction.response.send_message("⏹️ 已停止播放", ephemeral=True)
             await asyncio.sleep(1)
             bot.loop.create_task(play_bgm(self.ctx))
-        else:
-            await interaction.response.send_message("❌ 機器人已不在頻道中", ephemeral=True)
 
     @discord.ui.button(label="退出頻道", style=discord.ButtonStyle.red, emoji="🚪")
     async def leave_vc(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -531,59 +521,44 @@ class PlayerControlView(discord.ui.View):
                 await interaction.response.send_message("✅ 已強制重新連接語音端點", ephemeral=True)
             except Exception as e:
                 await interaction.response.send_message(f"❌ 重連失敗: {e}", ephemeral=True)
-        else:
-            await interaction.response.send_message("⚠️ 你必須在語音頻道內才能使用重連", ephemeral=True)
 
 async def play_bgm(ctx):
     global is_switching
-    if not bgm_enabled or not ctx.voice_client or ctx.voice_client.is_playing() or is_switching:
-        return
-
+    if not bgm_enabled or not ctx.voice_client or ctx.voice_client.is_playing() or is_switching: return
     bgm_ffmpeg_opts = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         'options': '-vn -ar 48000 -ac 2 -b:a 128k -af "volume=0.3" -async 1'
     }
-
     try:
         def fetch_bgm():
             with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True, 'noplaylist': True}) as ydl:
                 return ydl.extract_info(BGM_URL, download=False)
-        
         info = await bot.loop.run_in_executor(None, fetch_bgm)
         audio_url = info.get('url') or info['entries'][0]['url']
         source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **bgm_ffmpeg_opts)
-        
         def after_bgm(error):
             if bgm_enabled and ctx.voice_client and not ctx.voice_client.is_playing() and not is_switching:
                 bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
-        
         if ctx.voice_client and not ctx.voice_client.is_playing():
             ctx.voice_client.play(source, after=after_bgm)
-    except:
-        pass
+    except: pass
 
 @bot.command(name="play_music")
 async def p(ctx, *, url):
     global is_switching
     if not ctx.voice_client:
         if ctx.author.voice:
-            try:
-                await ctx.author.voice.channel.connect(reconnect=True, timeout=20)
-            except Exception as e:
-                return await ctx.send(f"❌ 無法進入頻道: `{e}`")
-        else:
-            return await ctx.send("⚠️ 請先進入語音頻道")
-
+            try: await ctx.author.voice.channel.connect(reconnect=True, timeout=20)
+            except Exception as e: return await ctx.send(f"❌ 無法進入頻道: `{e}`")
+        else: return await ctx.send("⚠️ 請先進入語音頻道")
     is_switching = True
     if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
         ctx.voice_client.stop()
         await asyncio.sleep(1)
-
     ffmpeg_opts = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
     }
-
     async def silent_play(target_url, current_view):
         global is_switching
         if not ctx.voice_client: return
@@ -591,18 +566,15 @@ async def p(ctx, *, url):
             def fetch_info():
                 with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True, 'noplaylist': True}) as ydl:
                     return ydl.extract_info(target_url, download=False)
-            
             info = await bot.loop.run_in_executor(None, fetch_info)
             audio_url = info.get('url') or info['entries'][0]['url']
             source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **ffmpeg_opts)
-            
             def loop_after(error):
                 if current_view.manual_stop or is_switching: return
                 if current_view.is_looping and ctx.voice_client:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(target_url, current_view)))
                 else:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
-
             if ctx.voice_client:
                 ctx.voice_client.play(source, after=loop_after)
             is_switching = False
@@ -615,24 +587,19 @@ async def p(ctx, *, url):
             def fetch_initial():
                 with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True, 'noplaylist': True}) as ydl:
                     return ydl.extract_info(url, download=False)
-            
             info = await bot.loop.run_in_executor(None, fetch_initial)
             if 'entries' in info: info = info['entries'][0]
-            
             title = info.get('title', '❌ 未知歌曲')
             uploader = info.get('uploader', '❌ 未知來源')
             duration = info.get('duration')
-            
             view = PlayerControlView(ctx, url, title, duration, uploader)
             source = await discord.FFmpegOpusAudio.from_probe(info['url'], executable=ffmpeg_exe, **ffmpeg_opts)
-            
             def initial_after(error):
                 if view.manual_stop: return
                 if view.is_looping and ctx.voice_client:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(url, view)))
                 else:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
-
             if ctx.voice_client:
                 ctx.voice_client.play(source, after=initial_after)
             is_switching = False
@@ -671,14 +638,12 @@ async def test(ctx):
     voice_latency = "未連線"
     if ctx.voice_client and ctx.voice_client.is_connected():
         voice_latency = f"{round(ctx.voice_client.latency * 1000)}ms"
-        
     process = psutil.Process()
     mem_rss = process.memory_info().rss / 1024 / 1024
     mem_vms = process.memory_info().vms / 1024 / 1024
     mem_percent = process.memory_percent()
     cpu_usage = psutil.cpu_percent()
     num_threads = process.num_threads()
-    
     if hasattr(bot, 'start_time'):
         uptime_seconds = int(time.time() - bot.start_time)
         days, rem = divmod(uptime_seconds, 86400)
@@ -686,11 +651,9 @@ async def test(ctx):
         minutes, seconds = divmod(rem, 60)
         uptime_str = f"{days}天 {hours}小時 {minutes}分 {seconds}秒"
     else:
-        uptime_str = "未知 (未設定啟動時間標記)"
+        uptime_str = "未知"
     operator_info = f"{ctx.author.display_name} ({ctx.author.id})"
-    
     bgm_status = "✅ 運行中" if bgm_enabled else "❌ 已關閉"
-    
     embed = discord.Embed(title="🛠️ 機器人核心測試報告", color=0x2ecc71, timestamp=ctx.message.created_at)
     embed.add_field(name="👤 操作人員名單", value=f"```{operator_info}```", inline=False)
     embed.add_field(name="⏳ 網路延遲", value=f"**API 延遲:** {api_latency}ms\n**語音閘道:** {voice_latency}", inline=True)
@@ -724,7 +687,7 @@ async def profile(ctx, member: discord.Member = None):
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
-    if isinstance(message.channel, discord.DMChannel) and not message.content.startswith("!"):
+    if isinstance(message.channel, discord.DMChannel) and not message.content.startswith("! "):
         owner = await bot.fetch_user(ALLOWED_IDS[0])
         await owner.send(f"📩 **私訊** | {message.author}: {message.content}")
     await bot.process_commands(message)
