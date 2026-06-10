@@ -177,27 +177,25 @@ async def op_admin(ctx, action: str = None, member: discord.Member = None):
     except: pass
 
 @bot.command(name="del_msg")
-async def del_msg(ctx, p1: str = None, p2: str = None, p3: str = None):
+async def del_msg(ctx, *args):
     if not await is_me(ctx): return
     amount = 10
     member = None
     keyword = None
-    args = [p for p in [p1, p2, p3] if p is not None]
     for arg in args:
-        try:
-            member = await commands.MemberConverter().convert(ctx, arg)
-            continue
-        except:
-            pass
-        try:
+        if arg.startswith('<@'):
+            try:
+                member = await commands.MemberConverter().convert(ctx, arg)
+                continue
+            except:
+                pass
+        if arg.isdigit():
             amount = int(arg)
             continue
-        except:
-            keyword = arg
+        keyword = arg
     try:
         await ctx.message.delete()
         def check_msg(m):
-            if m.id == ctx.message.id: return False
             if member and m.author.id != member.id: return False
             if keyword and keyword not in m.content: return False
             return True
