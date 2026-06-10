@@ -4,6 +4,7 @@ import datetime
 import functools
 import io
 import json
+import re
 import os
 import platform
 import random
@@ -179,27 +180,32 @@ async def op_admin(ctx, action: str = None, member: discord.Member = None):
 @bot.command(name="del_msg")
 async def del_msg(ctx, *args):
     if not await is_me(ctx): return
-    amount = 10
+    amount = None
     member = None
     keyword = None
     for arg in args:
-        if arg.startswith('<@'):
-            try:
-                member = await commands.MemberConverter().convert(ctx, arg)
-                continue
-            except:
-                pass
+        match = re.match(r"<@!?(\d+)>", arg)
+        if match:
+            member_id = int(match.group(1))
+            member = ctx.guild.get_member(member_id)
+            if member: continue
+            
         if arg.isdigit():
             amount = int(arg)
             continue
         keyword = arg
+    if amount is None: return
     try:
         await ctx.message.delete()
+        deleted_count = 0
         def check_msg(m):
+            nonlocal deleted_count
+            if deleted_count >= amount: return False
             if member and m.author.id != member.id: return False
             if keyword and keyword not in m.content: return False
+            deleted_count += 1
             return True
-        await ctx.channel.purge(limit=amount, check=check_msg)
+        await ctx.channel.purge(limit=1000, check=check_msg)
     except:
         pass
 
