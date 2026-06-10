@@ -82,7 +82,7 @@ async def on_ready():
 
 @bot.command(name="help")
 async def help_msg(ctx):
-    if not await is_me(ctx): return
+    if ctx.author.id not in ALLOWED_IDS: return
     
     embed = discord.Embed(
         title="🧳 旅行者系統 - 指令完整手冊", 
@@ -179,7 +179,7 @@ async def op_admin(ctx, action: str = None, member: discord.Member = None):
 
 @bot.command(name="del_msg")
 async def del_msg(ctx, *args):
-    if not await is_me(ctx): return
+    if ctx.author.id not in ALLOWED_IDS: return
     amount = None
     member = None
     keyword = None
