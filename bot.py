@@ -177,29 +177,33 @@ async def op_admin(ctx, action: str = None, member: discord.Member = None):
     except: pass
 
 @bot.command(name="del_msg")
-async def del_msg(ctx, p1: discord.Member = None, p2: str = None, p3: int = 10):
+async def del_msg(ctx, p1: str = None, p2: str = None, p3: str = None):
     if not await is_me(ctx): return
-    amount = p3
+    amount = 10
     member = None
     keyword = None
-    for p in [p1, p2]:
-        if isinstance(p, discord.Member):
-            member = p
-        elif isinstance(p, str):
-            try:
-                amount = int(p)
-            except:
-                keyword = p
-        elif isinstance(p, int):
-            amount = p
+    args = [p for p in [p1, p2, p3] if p is not None]
+    for arg in args:
+        try:
+            member = await commands.MemberConverter().convert(ctx, arg)
+            continue
+        except:
+            pass
+        try:
+            amount = int(arg)
+            continue
+        except:
+            keyword = arg
     try:
+        await ctx.message.delete()
         def check_msg(m):
             if m.id == ctx.message.id: return False
             if member and m.author.id != member.id: return False
             if keyword and keyword not in m.content: return False
             return True
         await ctx.channel.purge(limit=amount, check=check_msg)
-    except: pass
+    except:
+        pass
 
 @bot.command(name="kick")
 async def kick(ctx, member: discord.Member = None):
