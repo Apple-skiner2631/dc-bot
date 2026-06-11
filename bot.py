@@ -178,36 +178,34 @@ async def op_admin(ctx, action: str = None, member: discord.Member = None):
     except: pass
 
 @bot.command(name="del_msg")
-async def del_msg(ctx, *args):
-    if ctx.author.id not in ALLOWED_IDS: return
-    amount = None
+async def del_msg(ctx, p1: str = None, p2: str = None, p3: str = None):
+    if not await is_me(ctx): return
+    amount = 10
     member = None
     keyword = None
+    args = [p for p in [p1, p2, p3] if p is not None]
+    
     for arg in args:
-        match = re.match(r"<@!?(\d+)>", arg)
-        if match:
-            member_id = int(match.group(1))
-            member = ctx.guild.get_member(member_id)
-            if member: continue
-            
-        if arg.isdigit():
+        try:
+            member = await commands.MemberConverter().convert(ctx, arg)
+            continue
+        except:
+            pass
+        try:
             amount = int(arg)
             continue
-        keyword = arg
-    if amount is None: return
+        except:
+            keyword = arg
     try:
         await ctx.message.delete()
-        deleted_count = 0
         def check_msg(m):
-            nonlocal deleted_count
-            if deleted_count >= amount: return False
             if member and m.author.id != member.id: return False
             if keyword and keyword not in m.content: return False
-            deleted_count += 1
             return True
-        await ctx.channel.purge(limit=1000, check=check_msg)
-    except:
-        pass
+        deleted = await ctx.channel.purge(limit=amount + 1, check=check_msg)
+        await ctx.send(f"已刪除 {len(deleted) - 1} 則訊息。", delete_after=3)
+    except Exception as e:
+        await ctx.send(f"刪除失敗: {e}", delete_after=3)
 
 @bot.command(name="kick")
 async def kick(ctx, member: discord.Member = None):
