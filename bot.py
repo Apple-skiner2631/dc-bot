@@ -178,35 +178,11 @@ async def op_admin(ctx, action: str = None, member: discord.Member = None):
     except: pass
 
 @bot.command(name="del_msg")
-async def del_msg(ctx, p1: str = None, p2: str = None, p3: str = None):
+async def purge_chat(ctx, amount: int = 10):
     if not await is_me(ctx): return
-    amount = 10
-    member = None
-    keyword = None
-    args = [p for p in [p1, p2, p3] if p is not None]
-    
-    for arg in args:
-        try:
-            member = await commands.MemberConverter().convert(ctx, arg)
-            continue
-        except:
-            pass
-        try:
-            amount = int(arg)
-            continue
-        except:
-            keyword = arg
-    try:
-        await ctx.message.delete()
-        def check_msg(m):
-            if member and m.author.id != member.id: return False
-            if keyword and keyword not in m.content: return False
-            return True
-        deleted = await ctx.channel.purge(limit=amount + 1, check=check_msg)
-        await ctx.send(f"已刪除 {len(deleted) - 1} 則訊息。", delete_after=3)
-    except Exception as e:
-        await ctx.send(f"刪除失敗: {e}", delete_after=3)
-
+    try: await ctx.channel.purge(limit=amount)
+    except: pass
+        
 @bot.command(name="kick")
 async def kick(ctx, member: discord.Member = None):
     if not await is_me(ctx): return
@@ -561,16 +537,31 @@ async def p(ctx, *, url):
     if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
         ctx.voice_client.stop()
         await asyncio.sleep(1)
+        
     ffmpeg_opts = {
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'before_options': (
+            '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
+            '-headers "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\nReferer: https://www.bilibili.com/\r\n"'
+        ),
         'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
     }
+    
+    ydl_opts = {
+        'format': 'bestaudio/best', 
+        'quiet': True, 
+        'noplaylist': True,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://www.bilibili.com/'
+        }
+    }
+
     async def silent_play(target_url, current_view):
         global is_switching
         if not ctx.voice_client: return
         try:
             def fetch_info():
-                with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True, 'noplaylist': True}) as ydl:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     return ydl.extract_info(target_url, download=False)
             info = await bot.loop.run_in_executor(None, fetch_info)
             audio_url = info.get('url') or info['entries'][0]['url']
@@ -591,7 +582,7 @@ async def p(ctx, *, url):
     async with ctx.typing():
         try:
             def fetch_initial():
-                with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True, 'noplaylist': True}) as ydl:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     return ydl.extract_info(url, download=False)
             info = await bot.loop.run_in_executor(None, fetch_initial)
             if 'entries' in info: info = info['entries'][0]
