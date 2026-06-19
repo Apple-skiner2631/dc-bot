@@ -539,7 +539,10 @@ async def p(ctx, *, url):
         await asyncio.sleep(1)
         
     ffmpeg_opts = {
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'before_options': (
+            '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
+            '-headers "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\r\nReferer: https://www.bilibili.com/\r\n"'
+        ),
         'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
     }
     
@@ -548,8 +551,11 @@ async def p(ctx, *, url):
         'quiet': True, 
         'noplaylist': True
     }
+    is_bilibili = "bilibili.com" in url or "b23.tv" in url
+    b_audio_url = None
+    b_title, b_uploader, b_duration = '❌ 未知歌曲', '❌ 未知來源', 0
 
-    if "bilibili.com" in url or "b23.tv" in url:
+    if is_bilibili:
         async with ctx.typing():
             try:
                 import requests
@@ -562,9 +568,20 @@ async def p(ctx, *, url):
                     if res.status_code == 200:
                         b_data = res.json().get('data', {})
                         if b_data:
-                            title = b_data.get('title', '')
-                            owner = b_data.get('owner', {}).get('name', '')
-                            url = f"ytsearch:{title} {owner}"
+                            b_title = b_data.get('title', 'Bilibili Audio')
+                            b_uploader = b_data.get('owner', {}).get('name', '未知UP主')
+                            b_duration = b_data.get('duration', 0)
+                            cid = b_data.get('cid')
+                            play_res = requests.get(
+                                f"https://api.bilibili.com/x/player/wbi/playurl?bvid={bvid}&cid={cid}&fnval=16",
+                                headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.bilibili.com/"}
+                            )
+                            if play_res.status_code == 200:
+                                p_data = play_res.json().get('data', {})
+                                if 'dash' in p_data and p_data['dash'].get('audio'):
+                                    b_audio_url = p_data['dash']['audio'][0].get('baseUrl')
+                                elif 'durl' in p_data and p_data['durl']:
+                                    b_audio_url = p_data['durl'][0].get('url')
             except:
                 pass
 
@@ -572,16 +589,30 @@ async def p(ctx, *, url):
         global is_switching
         if not ctx.voice_client: return
         try:
-            def fetch_info():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    return ydl.extract_info(target_url, download=False)
-            info = await bot.loop.run_in_executor(None, fetch_info)
-            if 'entries' in info and info['entries']:
-                audio_url = info['entries'][0]['url']
+            if "bilibili.com" in target_url or "b23.tv" in target_url:
+                import requests
+                loop_url = None
+                bv_match = re.search(r'BV[a-zA-Z0-9]{10}', target_url)
+                if bv_match:
+                    bvid = bv_match.group(0)
+                    res = requests.get(f"https://api.bilibili.com/x/web-interface/view?bvid={bvid}", headers={"User-Agent": "Mozilla/5.0"})
+                    b_data = res.json().get('data', {})
+                    cid = b_data.get('cid')
+                    play_res = requests.get(f"https://api.bilibili.com/x/player/wbi/playurl?bvid={bvid}&cid={cid}&fnval=16", headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.bilibili.com/"})
+                    p_data = play_res.json().get('data', {})
+                    if 'dash' in p_data and p_data['dash'].get('audio'):
+                        loop_url = p_data['dash']['audio'][0].get('baseUrl')
+                    elif 'durl' in p_data and p_data['durl']:
+                        loop_url = p_data['durl'][0].get('url')
+                audio_url = loop_url
             else:
-                audio_url = info.get('url')
-            if not audio_url:
-                raise Exception("無法提取播放網址")
+                def fetch_info():
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        return ydl.extract_info(target_url, download=False)
+                info = await bot.loop.run_in_executor(None, fetch_info)
+                audio_url = info['entries'][0]['url'] if 'entries' in info else info.get('url')
+                
+            if not audio_url: raise Exception("無法提取播放網址")
             source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **ffmpeg_opts)
             def loop_after(error):
                 if current_view.manual_stop or is_switching: return
@@ -598,19 +629,27 @@ async def p(ctx, *, url):
 
     async with ctx.typing():
         try:
-            def fetch_initial():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    return ydl.extract_info(url, download=False)
-            info = await bot.loop.run_in_executor(None, fetch_initial)
-            if 'entries' in info:
-                if not info['entries']:
-                    raise Exception("搜尋結果為空，請稍後再試或更換網址")
-                info = info['entries'][0]
-            title = info.get('title', '❌ 未知歌曲')
-            uploader = info.get('uploader', '❌ 未知來源')
-            duration = info.get('duration')
-            view = PlayerControlView(ctx, url, title, duration, uploader)
-            source = await discord.FFmpegOpusAudio.from_probe(info['url'], executable=ffmpeg_exe, **ffmpeg_opts)
+            if is_bilibili and b_audio_url:
+                title = b_title
+                uploader = b_uploader
+                duration = b_duration
+                play_source_url = b_audio_url
+                view = PlayerControlView(ctx, url, title, duration, uploader)
+            else:
+                def fetch_initial():
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        return ydl.extract_info(url, download=False)
+                info = await bot.loop.run_in_executor(None, fetch_initial)
+                if 'entries' in info:
+                    if not info['entries']: raise Exception("搜尋結果為空，請稍後再試或更換網址")
+                    info = info['entries'][0]
+                title = info.get('title', '❌ 未知歌曲')
+                uploader = info.get('uploader', '❌ 未知來源')
+                duration = info.get('duration')
+                play_source_url = info['url']
+                view = PlayerControlView(ctx, url, title, duration, uploader)
+                
+            source = await discord.FFmpegOpusAudio.from_probe(play_source_url, executable=ffmpeg_exe, **ffmpeg_opts)
             def initial_after(error):
                 if view.manual_stop: return
                 if view.is_looping and ctx.voice_client:
