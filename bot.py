@@ -549,7 +549,6 @@ async def p(ctx, *, url):
         'noplaylist': True
     }
 
-    # B站網址預先轉換邏輯
     if "bilibili.com" in url or "b23.tv" in url:
         async with ctx.typing():
             try:
@@ -577,7 +576,12 @@ async def p(ctx, *, url):
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     return ydl.extract_info(target_url, download=False)
             info = await bot.loop.run_in_executor(None, fetch_info)
-            audio_url = info.get('url') or info['entries'][0]['url']
+            if 'entries' in info and info['entries']:
+                audio_url = info['entries'][0]['url']
+            else:
+                audio_url = info.get('url')
+            if not audio_url:
+                raise Exception("無法提取播放網址")
             source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **ffmpeg_opts)
             def loop_after(error):
                 if current_view.manual_stop or is_switching: return
@@ -598,7 +602,10 @@ async def p(ctx, *, url):
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     return ydl.extract_info(url, download=False)
             info = await bot.loop.run_in_executor(None, fetch_initial)
-            if 'entries' in info: info = info['entries'][0]
+            if 'entries' in info:
+                if not info['entries']:
+                    raise Exception("搜尋結果為空，請稍後再試或更換網址")
+                info = info['entries'][0]
             title = info.get('title', '❌ 未知歌曲')
             uploader = info.get('uploader', '❌ 未知來源')
             duration = info.get('duration')
