@@ -539,24 +539,35 @@ async def p(ctx, *, url):
         await asyncio.sleep(1)
         
     ffmpeg_opts = {
-        'before_options': (
-            '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
-            '-headers "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\r\nReferer: https://www.bilibili.com/\r\n"'
-        ),
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
     }
     
     ydl_opts = {
         'format': 'bestaudio/best', 
         'quiet': True, 
-        'noplaylist': True,
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Referer': 'https://www.bilibili.com/',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
-        }
+        'noplaylist': True
     }
+
+    # B站網址預先轉換邏輯
+    if "bilibili.com" in url or "b23.tv" in url:
+        async with ctx.typing():
+            try:
+                import requests
+                bvid = None
+                bv_match = re.search(r'BV[a-zA-Z0-9]{10}', url)
+                if bv_match:
+                    bvid = bv_match.group(0)
+                if bvid:
+                    res = requests.get(f"https://api.bilibili.com/x/web-interface/view?bvid={bvid}", headers={"User-Agent": "Mozilla/5.0"})
+                    if res.status_code == 200:
+                        b_data = res.json().get('data', {})
+                        if b_data:
+                            title = b_data.get('title', '')
+                            owner = b_data.get('owner', {}).get('name', '')
+                            url = f"ytsearch:{title} {owner}"
+            except:
+                pass
 
     async def silent_play(target_url, current_view):
         global is_switching
