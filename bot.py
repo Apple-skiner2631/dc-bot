@@ -541,7 +541,7 @@ async def p(ctx, *, url):
     ffmpeg_opts = {
         'before_options': (
             '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
-            '-headers "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\nReferer: https://www.bilibili.com/\r\n"'
+            '-headers "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\r\nReferer: https://www.bilibili.com/\r\n"'
         ),
         'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
     }
@@ -550,9 +550,12 @@ async def p(ctx, *, url):
         'format': 'bestaudio/best', 
         'quiet': True, 
         'noplaylist': True,
+        'impersonate': 'chrome',
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://www.bilibili.com/'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Referer': 'https://www.bilibili.com/',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
         }
     }
 
@@ -605,7 +608,7 @@ async def p(ctx, *, url):
             is_switching = False
             await ctx.send(f"❌ 播放失敗: `{str(e)[:100]}`")
             bot.loop.create_task(play_bgm(ctx))
-
+            
 @bot.command(name="stop_music")
 async def stop_music(ctx):
     if ctx.voice_client:
