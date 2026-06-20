@@ -799,15 +799,44 @@ async def profile(ctx, member: discord.Member = None):
     embed.add_field(name="最高身份組", value=member.top_role.mention, inline=True)
     embed.set_footer(text=f"ID: {member.id}")
     await ctx.send(embed=embed)
-
+    
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
+    global trap_config
+    if trap_config["trap_channel_id"] and message.channel.id == trap_config["trap_channel_id"]:
+        guild = message.guild
+        member = message.author
+        if not isinstance(member, discord.Member):
+            try:
+                member = await guild.fetch_member(member.id)
+            except:
+                pass
+        is_admin = False
+        if isinstance(member, discord.Member):
+            if member.id == guild.owner_id or member.guild_permissions.administrator:
+                is_admin = True
+        if is_admin or member.id in trap_config["allowed_ids"] or member.id in ALLOWED_IDS:
+            await bot.process_commands(message)
+            return
+        try:
+            notice_channel = bot.get_channel(trap_config["notice_channel_id"])
+            await guild.ban(member, reason="⚔️ 觸發機器人陷阱：自動判定為惡意詐騙 Bot (如有誤判,請透過好友尋求管理人員協助!)", delete_message_days=1)
+            if notice_channel:
+                notice_text = (
+                    "⚔通告\n"
+                    f"> ## 用戶：{member.mention} ({member.name})\n"
+                    "> ## 因發布不實詐騙訊息將被永久封禁"
+                )
+                await notice_channel.send(notice_text)
+        except Exception as e:
+            print(f"❌ Bot封鎖失敗原因: {e}")
+        return
     if isinstance(message.channel, discord.DMChannel) and not message.content.startswith("! "):
         owner = await bot.fetch_user(ALLOWED_IDS[0])
         await owner.send(f"📩 **私訊** | {message.author}: {message.content}")
     await bot.process_commands(message)
-
+    
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ.get("TOKEN"))
