@@ -799,7 +799,7 @@ async def on_message(message):
             await guild.ban(member, reason="⚔️ 觸發機器人陷阱：自動判定為惡意詐騙 Bot (如有誤判,請透過好友尋求管理人員協助!)", delete_message_days=1)
             if notice_channel:
                 notice_text = (
-                    "⚔通告\n"
+                    "# 🚨通告\n"
                     f"> ## 用戶：{member.mention} ({member.name})\n"
                     "> ## 因發布不實詐騙訊息將被永久封禁"
                 )
