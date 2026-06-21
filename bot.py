@@ -616,6 +616,7 @@ async def p(ctx, *, url):
     if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
         ctx.voice_client.stop()
         await asyncio.sleep(1)
+        
     ffmpeg_opts = {
         'before_options': (
             '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
@@ -623,6 +624,7 @@ async def p(ctx, *, url):
         ),
         'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
     }
+    
     ydl_opts = {
         'format': 'bestaudio/best', 
         'quiet': True, 
@@ -631,6 +633,7 @@ async def p(ctx, *, url):
     is_bilibili = "bilibili.com" in url or "b23.tv" in url
     b_audio_url = None
     b_title, b_uploader, b_duration = '❌ 未知歌曲', '❌ 未知來源', 0
+
     if is_bilibili:
         async with ctx.typing():
             try:
@@ -660,6 +663,7 @@ async def p(ctx, *, url):
                                     b_audio_url = p_data['durl'][0].get('url')
             except:
                 pass
+
     async def silent_play(target_url, current_view, seek_time=0):
         global is_switching
         if not ctx.voice_client: return
@@ -686,12 +690,16 @@ async def p(ctx, *, url):
                         return ydl.extract_info(target_url, download=False)
                 info = await bot.loop.run_in_executor(None, fetch_info)
                 audio_url = info['entries'][0]['url'] if 'entries' in info else info.get('url')
+                
             if not audio_url: raise Exception("無法提取播放網址")
+            
             local_ffmpeg_opts = ffmpeg_opts.copy()
             if seek_time != 0:
-                local_ffmpeg_opts['options'] += f' -ss {seek_time}'  
-            source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **local_ffmpeg_opts)
+                local_ffmpeg_opts['options'] += f' -ss {seek_time}'
+                
+            source = discord.FFmpegPCMAudio(audio_url, executable=ffmpeg_exe, **local_ffmpeg_opts)
             volume_source = discord.PCMVolumeTransformer(source, volume=current_view.current_volume)
+            
             def loop_after(error):
                 if current_view.manual_stop or is_switching: return
                 if current_view.is_looping and ctx.voice_client:
@@ -704,6 +712,7 @@ async def p(ctx, *, url):
         except:
             is_switching = False
             bot.loop.create_task(play_bgm(ctx))
+
     async with ctx.typing():
         try:
             if is_bilibili and b_audio_url:
@@ -725,8 +734,10 @@ async def p(ctx, *, url):
                 duration = info.get('duration')
                 play_source_url = info['url']
                 view = PlayerControlView(ctx, url, title, duration, uploader)
-            source = await discord.FFmpegOpusAudio.from_probe(play_source_url, executable=ffmpeg_exe, **ffmpeg_opts)
+                
+            source = discord.FFmpegPCMAudio(play_source_url, executable=ffmpeg_exe, **ffmpeg_opts)
             volume_source = discord.PCMVolumeTransformer(source, volume=view.current_volume)
+            
             def initial_after(error):
                 if view.manual_stop: return
                 if view.is_looping and ctx.voice_client:
