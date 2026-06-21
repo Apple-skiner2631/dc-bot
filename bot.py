@@ -545,29 +545,7 @@ class PlayerControlView(discord.ui.View):
             vc.source.volume = self.current_volume
         await interaction.response.edit_message(embed=self._get_embed(), view=self)
 
-    @discord.ui.button(label="快進 10s", style=discord.ButtonStyle.gray, emoji="⏩", row=1)
-    async def fast_forward(self, interaction: discord.Interaction, button: discord.ui.Button):
-        global is_switching
-        self.manual_stop = True
-        is_switching = True
-        if self.ctx.voice_client:
-            self.ctx.voice_client.stop()
-        await interaction.response.send_message("⏩ 正在快進 10 秒...", ephemeral=True)
-        await asyncio.sleep(1)
-        self.manual_stop = False
-        bot.loop.create_task(silent_play(self.ctx, self.url, self, seek_time=10))
-
-    @discord.ui.button(label="後退 10s", style=discord.ButtonStyle.gray, emoji="⏪", row=1)
-    async def rewind(self, interaction: discord.Interaction, button: discord.ui.Button):
-        global is_switching
-        self.manual_stop = True
-        is_switching = True
-        if self.ctx.voice_client:
-            self.ctx.voice_client.stop()
-        await interaction.response.send_message("⏪ 正在後退 10 秒...", ephemeral=True)
-        await asyncio.sleep(1)
-        self.manual_stop = False
-        bot.loop.create_task(silent_play(self.ctx, self.url, self, seek_time=-10))
+   
 
     @discord.ui.button(label="停止播放", style=discord.ButtonStyle.red, emoji="⏹️", row=2)
     async def stop_player(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -627,9 +605,7 @@ async def silent_play(ctx, target_url, current_view, seek_time=0):
             
         if not audio_url: raise Exception("無法提取播放網址")
         
-        local_ffmpeg_opts = FFMPEG_OPTS.copy()
-        if seek_time != 0:
-            local_ffmpeg_opts['before_options'] += f' -ss {seek_time}'
+
             
         source = discord.FFmpegPCMAudio(audio_url, executable=ffmpeg_exe, **local_ffmpeg_opts)
         volume_source = discord.PCMVolumeTransformer(source, volume=current_view.current_volume)
