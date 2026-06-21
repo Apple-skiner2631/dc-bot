@@ -495,7 +495,7 @@ class PlayerControlView(discord.ui.View):
         embed.set_footer(text=f"🔄 自動循環: {'開啟' if self.is_looping else '關閉'}")
         return embed
 
-    @discord.ui.button(label="暫停/繼續", style=discord.ButtonStyle.blurple, emoji="⏯️")
+    @discord.ui.button(label="暫停/繼續", style=discord.ButtonStyle.blurple, emoji="⏯️", row=0)
     async def play_pause(self, interaction: discord.Interaction, button: discord.ui.Button):
         vc = self.ctx.voice_client
         if not vc: return await interaction.response.send_message("❌ 機器人不在語音頻道中", ephemeral=True)
@@ -506,14 +506,14 @@ class PlayerControlView(discord.ui.View):
             vc.resume()
             await interaction.response.edit_message(embed=self._get_embed("正在播放"), view=self)
 
-    @discord.ui.button(label="重複: 開", style=discord.ButtonStyle.green, emoji="🔁")
+    @discord.ui.button(label="重複: 開", style=discord.ButtonStyle.green, emoji="🔁", row=0)
     async def toggle_loop(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_looping = not self.is_looping
         button.label = f"重複: {'開' if self.is_looping else '關'}"
         button.style = discord.ButtonStyle.green if self.is_looping else discord.ButtonStyle.gray
         await interaction.response.edit_message(embed=self._get_embed(), view=self)
 
-    @discord.ui.button(label="音量 +", style=discord.ButtonStyle.gray, emoji="🔊")
+    @discord.ui.button(label="音量 +", style=discord.ButtonStyle.gray, emoji="🔊", row=1)
     async def volume_up(self, interaction: discord.Interaction, button: discord.ui.Button):
         vc = self.ctx.voice_client
         if not vc or not vc.source: return await interaction.response.send_message("❌ 目前沒有正在播放的音訊", ephemeral=True)
@@ -522,7 +522,7 @@ class PlayerControlView(discord.ui.View):
             vc.source.volume = self.current_volume
         await interaction.response.edit_message(embed=self._get_embed(), view=self)
 
-    @discord.ui.button(label="音量 -", style=discord.ButtonStyle.gray, emoji="🔉")
+    @discord.ui.button(label="音量 -", style=discord.ButtonStyle.gray, emoji="🔉", row=1)
     async def volume_down(self, interaction: discord.Interaction, button: discord.ui.Button):
         vc = self.ctx.voice_client
         if not vc or not vc.source: return await interaction.response.send_message("❌ 目前沒有正在播放的音訊", ephemeral=True)
@@ -531,8 +531,9 @@ class PlayerControlView(discord.ui.View):
             vc.source.volume = self.current_volume
         await interaction.response.edit_message(embed=self._get_embed(), view=self)
 
-    @discord.ui.button(label="快進 10s", style=discord.ButtonStyle.gray, emoji="⏩")
+    @discord.ui.button(label="快進 10s", style=discord.ButtonStyle.gray, emoji="⏩", row=1)
     async def fast_forward(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global is_switching
         self.manual_stop = True
         is_switching = True
         if self.ctx.voice_client:
@@ -540,10 +541,11 @@ class PlayerControlView(discord.ui.View):
         await interaction.response.send_message("⏩ 正在快進 10 秒...", ephemeral=True)
         await asyncio.sleep(1)
         self.manual_stop = False
-        bot.loop.create_task(silent_play(self.url, self, seek_time=10))
+        bot.loop.create_task(silent_play(self.ctx, self.url, self, seek_time=10))
 
-    @discord.ui.button(label="後退 10s", style=discord.ButtonStyle.gray, emoji="⏪")
+    @discord.ui.button(label="後退 10s", style=discord.ButtonStyle.gray, emoji="⏪", row=1)
     async def rewind(self, interaction: discord.Interaction, button: discord.ui.Button):
+        global is_switching
         self.manual_stop = True
         is_switching = True
         if self.ctx.voice_client:
@@ -551,9 +553,9 @@ class PlayerControlView(discord.ui.View):
         await interaction.response.send_message("⏪ 正在後退 10 秒...", ephemeral=True)
         await asyncio.sleep(1)
         self.manual_stop = False
-        bot.loop.create_task(silent_play(self.url, self, seek_time=-10))
+        bot.loop.create_task(silent_play(self.ctx, self.url, self, seek_time=-10))
 
-    @discord.ui.button(label="停止播放", style=discord.ButtonStyle.red, emoji="⏹️")
+    @discord.ui.button(label="停止播放", style=discord.ButtonStyle.red, emoji="⏹️", row=2)
     async def stop_player(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_looping = False
         self.manual_stop = True
@@ -563,7 +565,7 @@ class PlayerControlView(discord.ui.View):
             await asyncio.sleep(1)
             bot.loop.create_task(play_bgm(self.ctx))
 
-    @discord.ui.button(label="退出頻道", style=discord.ButtonStyle.red, emoji="🚪")
+    @discord.ui.button(label="退出頻道", style=discord.ButtonStyle.red, emoji="🚪", row=2)
     async def leave_vc(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.is_looping = False
         self.manual_stop = True
@@ -571,7 +573,7 @@ class PlayerControlView(discord.ui.View):
             await self.ctx.voice_client.disconnect()
             await interaction.response.send_message("🚪 已斷開連線", ephemeral=True)
 
-    @discord.ui.button(label="重新連結", style=discord.ButtonStyle.gray, emoji="🔧")
+    @discord.ui.button(label="重新連結", style=discord.ButtonStyle.gray, emoji="🔧", row=2)
     async def reconnect_vc(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.ctx.author.voice:
             try:
@@ -604,7 +606,7 @@ async def play_bgm(ctx):
             ctx.voice_client.play(volume_source, after=after_bgm)
     except: pass
 
-@bot.command(name="play_music")
+bot.command(name="play_music")
 async def p(ctx, *, url):
     global is_switching
     if not ctx.voice_client:
@@ -664,7 +666,7 @@ async def p(ctx, *, url):
             except:
                 pass
 
-    async def silent_play(target_url, current_view, seek_time=0):
+    async def silent_play(ctx, target_url, current_view, seek_time=0):
         global is_switching
         if not ctx.voice_client: return
         try:
@@ -695,7 +697,7 @@ async def p(ctx, *, url):
             
             local_ffmpeg_opts = ffmpeg_opts.copy()
             if seek_time != 0:
-                local_ffmpeg_opts['options'] += f' -ss {seek_time}'
+                local_ffmpeg_opts['before_options'] += f' -ss {seek_time}'
                 
             source = discord.FFmpegPCMAudio(audio_url, executable=ffmpeg_exe, **local_ffmpeg_opts)
             volume_source = discord.PCMVolumeTransformer(source, volume=current_view.current_volume)
@@ -703,7 +705,7 @@ async def p(ctx, *, url):
             def loop_after(error):
                 if current_view.manual_stop or is_switching: return
                 if current_view.is_looping and ctx.voice_client:
-                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(target_url, current_view)))
+                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(ctx, target_url, current_view)))
                 else:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
             if ctx.voice_client:
@@ -741,7 +743,7 @@ async def p(ctx, *, url):
             def initial_after(error):
                 if view.manual_stop: return
                 if view.is_looping and ctx.voice_client:
-                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(url, view)))
+                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(ctx, url, view)))
                 else:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
             if ctx.voice_client:
