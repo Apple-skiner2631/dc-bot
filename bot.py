@@ -468,9 +468,23 @@ async def dc(ctx):
         except: pass
 
 bgm_enabled = False
-bgm_enabled = False
 is_switching = False
 BGM_URL = "https://soundcloud.com/ghostly/c418-haggstrom-1?in=lucas-shearer-913642639/sets/minecraft-soundtrack-disc"
+
+FFMPEG_OPTS = {
+    'before_options': (
+        '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
+        '-headers "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\r\nReferer: https://www.bilibili.com/\r\n"'
+    ),
+    'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
+}
+
+YDL_OPTS = {
+    'format': 'bestaudio/best', 
+    'quiet': True, 
+    'noplaylist': True
+}
+
 
 class PlayerControlView(discord.ui.View):
     def __init__(self, ctx, url, title, duration, uploader):
@@ -583,30 +597,58 @@ class PlayerControlView(discord.ui.View):
                 await interaction.response.send_message("✅ 已強制重新連接語音端點", ephemeral=True)
             except Exception as e:
                 await interaction.response.send_message(f"❌ 重連失敗: {e}", ephemeral=True)
-
-async def play_bgm(ctx):
+                
+async def silent_play(ctx, target_url, current_view, seek_time=0):
     global is_switching
-    if not bgm_enabled or not ctx.voice_client or ctx.voice_client.is_playing() or is_switching: return
-    bgm_ffmpeg_opts = {
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-        'options': '-vn -ar 48000 -ac 2 -b:a 128k -af "volume=0.3" -async 1'
-    }
+    if not ctx.voice_client: return
     try:
-        def fetch_bgm():
-            with yt_dlp.YoutubeDL({'format': 'bestaudio/best', 'quiet': True, 'noplaylist': True}) as ydl:
-                return ydl.extract_info(BGM_URL, download=False)
-        info = await bot.loop.run_in_executor(None, fetch_bgm)
-        audio_url = info.get('url') or info['entries'][0]['url']
-        source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **bgm_ffmpeg_opts)
-        def after_bgm(error):
-            if bgm_enabled and ctx.voice_client and not ctx.voice_client.is_playing() and not is_switching:
+        if "bilibili.com" in target_url or "b23.tv" in target_url:
+            import requests
+            loop_url = None
+            bv_match = re.search(r'BV[a-zA-Z0-9]{10}', target_url)
+            if bv_match:
+                bvid = bv_match.group(0)
+                res = requests.get(f"https://api.bilibili.com/x/web-interface/view?bvid={bvid}", headers={"User-Agent": "Mozilla/5.0"})
+                b_data = res.json().get('data', {})
+                cid = b_data.get('cid')
+                play_res = requests.get(f"https://api.bilibili.com/x/player/wbi/playurl?bvid={bvid}&cid={cid}&fnval=16", headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.bilibili.com/"})
+                p_data = play_res.json().get('data', {})
+                if 'dash' in p_data and p_data['dash'].get('audio'):
+                    loop_url = p_data['dash']['audio'][0].get('baseUrl')
+                elif 'durl' in p_data and p_data['durl']:
+                    loop_url = p_data['durl'][0].get('url')
+            audio_url = loop_url
+        else:
+            def fetch_info():
+                with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
+                    return ydl.extract_info(target_url, download=False)
+            info = await bot.loop.run_in_executor(None, fetch_info)
+            audio_url = info['entries'][0]['url'] if 'entries' in info else info.get('url')
+            
+        if not audio_url: raise Exception("無法提取播放網址")
+        
+        local_ffmpeg_opts = FFMPEG_OPTS.copy()
+        if seek_time != 0:
+            local_ffmpeg_opts['before_options'] += f' -ss {seek_time}'
+            
+        source = discord.FFmpegPCMAudio(audio_url, executable=ffmpeg_exe, **local_ffmpeg_opts)
+        volume_source = discord.PCMVolumeTransformer(source, volume=current_view.current_volume)
+        
+        def loop_after(error):
+            if current_view.manual_stop or is_switching: return
+            if current_view.is_looping and ctx.voice_client:
+                bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(ctx, target_url, current_view)))
+            else:
                 bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
-        if ctx.voice_client and not ctx.voice_client.is_playing():
-            volume_source = discord.PCMVolumeTransformer(source, volume=1.0)
-            ctx.voice_client.play(volume_source, after=after_bgm)
-    except: pass
+        if ctx.voice_client:
+            ctx.voice_client.play(volume_source, after=loop_after)
+        is_switching = False
+    except:
+        is_switching = False
+        bot.loop.create_task(play_bgm(ctx))
 
-bot.command(name="play_music")
+
+@bot.command(name="play_music")
 async def p(ctx, *, url):
     global is_switching
     if not ctx.voice_client:
@@ -619,19 +661,6 @@ async def p(ctx, *, url):
         ctx.voice_client.stop()
         await asyncio.sleep(1)
         
-    ffmpeg_opts = {
-        'before_options': (
-            '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
-            '-headers "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\r\nReferer: https://www.bilibili.com/\r\n"'
-        ),
-        'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
-    }
-    
-    ydl_opts = {
-        'format': 'bestaudio/best', 
-        'quiet': True, 
-        'noplaylist': True
-    }
     is_bilibili = "bilibili.com" in url or "b23.tv" in url
     b_audio_url = None
     b_title, b_uploader, b_duration = '❌ 未知歌曲', '❌ 未知來源', 0
@@ -666,55 +695,6 @@ async def p(ctx, *, url):
             except:
                 pass
 
-    async def silent_play(ctx, target_url, current_view, seek_time=0):
-        global is_switching
-        if not ctx.voice_client: return
-        try:
-            if "bilibili.com" in target_url or "b23.tv" in target_url:
-                import requests
-                loop_url = None
-                bv_match = re.search(r'BV[a-zA-Z0-9]{10}', target_url)
-                if bv_match:
-                    bvid = bv_match.group(0)
-                    res = requests.get(f"https://api.bilibili.com/x/web-interface/view?bvid={bvid}", headers={"User-Agent": "Mozilla/5.0"})
-                    b_data = res.json().get('data', {})
-                    cid = b_data.get('cid')
-                    play_res = requests.get(f"https://api.bilibili.com/x/player/wbi/playurl?bvid={bvid}&cid={cid}&fnval=16", headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.bilibili.com/"})
-                    p_data = play_res.json().get('data', {})
-                    if 'dash' in p_data and p_data['dash'].get('audio'):
-                        loop_url = p_data['dash']['audio'][0].get('baseUrl')
-                    elif 'durl' in p_data and p_data['durl']:
-                        loop_url = p_data['durl'][0].get('url')
-                audio_url = loop_url
-            else:
-                def fetch_info():
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        return ydl.extract_info(target_url, download=False)
-                info = await bot.loop.run_in_executor(None, fetch_info)
-                audio_url = info['entries'][0]['url'] if 'entries' in info else info.get('url')
-                
-            if not audio_url: raise Exception("無法提取播放網址")
-            
-            local_ffmpeg_opts = ffmpeg_opts.copy()
-            if seek_time != 0:
-                local_ffmpeg_opts['before_options'] += f' -ss {seek_time}'
-                
-            source = discord.FFmpegPCMAudio(audio_url, executable=ffmpeg_exe, **local_ffmpeg_opts)
-            volume_source = discord.PCMVolumeTransformer(source, volume=current_view.current_volume)
-            
-            def loop_after(error):
-                if current_view.manual_stop or is_switching: return
-                if current_view.is_looping and ctx.voice_client:
-                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(ctx, target_url, current_view)))
-                else:
-                    bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
-            if ctx.voice_client:
-                ctx.voice_client.play(volume_source, after=loop_after)
-            is_switching = False
-        except:
-            is_switching = False
-            bot.loop.create_task(play_bgm(ctx))
-
     async with ctx.typing():
         try:
             if is_bilibili and b_audio_url:
@@ -725,7 +705,7 @@ async def p(ctx, *, url):
                 view = PlayerControlView(ctx, url, title, duration, uploader)
             else:
                 def fetch_initial():
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    with yt_dlp.YoutubeDL(YDL_OPTS) as ydl:
                         return ydl.extract_info(url, download=False)
                 info = await bot.loop.run_in_executor(None, fetch_initial)
                 if 'entries' in info:
@@ -737,7 +717,7 @@ async def p(ctx, *, url):
                 play_source_url = info['url']
                 view = PlayerControlView(ctx, url, title, duration, uploader)
                 
-            source = discord.FFmpegPCMAudio(play_source_url, executable=ffmpeg_exe, **ffmpeg_opts)
+            source = discord.FFmpegPCMAudio(play_source_url, executable=ffmpeg_exe, **FFMPEG_OPTS)
             volume_source = discord.PCMVolumeTransformer(source, volume=view.current_volume)
             
             def initial_after(error):
