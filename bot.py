@@ -468,6 +468,7 @@ async def dc(ctx):
         except: pass
 
 bgm_enabled = False
+bgm_enabled = False
 is_switching = False
 BGM_URL = "https://soundcloud.com/ghostly/c418-haggstrom-1?in=lucas-shearer-913642639/sets/minecraft-soundtrack-disc"
 
@@ -481,6 +482,7 @@ class PlayerControlView(discord.ui.View):
         self.uploader = uploader
         self.is_looping = True
         self.manual_stop = False
+        self.current_volume = 1.0
 
     def _get_embed(self, status="正在播放"):
         embed = discord.Embed(title=f"🎵 {status}", color=0x3498db)
@@ -489,6 +491,7 @@ class PlayerControlView(discord.ui.View):
         if self.duration:
             d_int = int(self.duration)
             embed.add_field(name="⏱️ 長度", value=f"{d_int // 60}:{d_int % 60:02d}", inline=True)
+        embed.add_field(name="🔊 音量", value=f"{int(self.current_volume * 100)}%", inline=True)
         embed.set_footer(text=f"🔄 自動循環: {'開啟' if self.is_looping else '關閉'}")
         return embed
 
@@ -509,6 +512,46 @@ class PlayerControlView(discord.ui.View):
         button.label = f"重複: {'開' if self.is_looping else '關'}"
         button.style = discord.ButtonStyle.green if self.is_looping else discord.ButtonStyle.gray
         await interaction.response.edit_message(embed=self._get_embed(), view=self)
+
+    @discord.ui.button(label="音量 +", style=discord.ButtonStyle.gray, emoji="🔊")
+    async def volume_up(self, interaction: discord.Interaction, button: discord.ui.Button):
+        vc = self.ctx.voice_client
+        if not vc or not vc.source: return await interaction.response.send_message("❌ 目前沒有正在播放的音訊", ephemeral=True)
+        self.current_volume = min(self.current_volume + 0.1, 2.0)
+        if isinstance(vc.source, discord.PCMVolumeTransformer):
+            vc.source.volume = self.current_volume
+        await interaction.response.edit_message(embed=self._get_embed(), view=self)
+
+    @discord.ui.button(label="音量 -", style=discord.ButtonStyle.gray, emoji="🔉")
+    async def volume_down(self, interaction: discord.Interaction, button: discord.ui.Button):
+        vc = self.ctx.voice_client
+        if not vc or not vc.source: return await interaction.response.send_message("❌ 目前沒有正在播放的音訊", ephemeral=True)
+        self.current_volume = max(self.current_volume - 0.1, 0.0)
+        if isinstance(vc.source, discord.PCMVolumeTransformer):
+            vc.source.volume = self.current_volume
+        await interaction.response.edit_message(embed=self._get_embed(), view=self)
+
+    @discord.ui.button(label="快進 10s", style=discord.ButtonStyle.gray, emoji="⏩")
+    async def fast_forward(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.manual_stop = True
+        is_switching = True
+        if self.ctx.voice_client:
+            self.ctx.voice_client.stop()
+        await interaction.response.send_message("⏩ 正在快進 10 秒...", ephemeral=True)
+        await asyncio.sleep(1)
+        self.manual_stop = False
+        bot.loop.create_task(silent_play(self.url, self, seek_time=10))
+
+    @discord.ui.button(label="後退 10s", style=discord.ButtonStyle.gray, emoji="⏪")
+    async def rewind(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.manual_stop = True
+        is_switching = True
+        if self.ctx.voice_client:
+            self.ctx.voice_client.stop()
+        await interaction.response.send_message("⏪ 正在後退 10 秒...", ephemeral=True)
+        await asyncio.sleep(1)
+        self.manual_stop = False
+        bot.loop.create_task(silent_play(self.url, self, seek_time=-10))
 
     @discord.ui.button(label="停止播放", style=discord.ButtonStyle.red, emoji="⏹️")
     async def stop_player(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -557,7 +600,8 @@ async def play_bgm(ctx):
             if bgm_enabled and ctx.voice_client and not ctx.voice_client.is_playing() and not is_switching:
                 bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
         if ctx.voice_client and not ctx.voice_client.is_playing():
-            ctx.voice_client.play(source, after=after_bgm)
+            volume_source = discord.PCMVolumeTransformer(source, volume=1.0)
+            ctx.voice_client.play(volume_source, after=after_bgm)
     except: pass
 
 @bot.command(name="play_music")
@@ -572,7 +616,6 @@ async def p(ctx, *, url):
     if ctx.voice_client.is_playing() or ctx.voice_client.is_paused():
         ctx.voice_client.stop()
         await asyncio.sleep(1)
-        
     ffmpeg_opts = {
         'before_options': (
             '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
@@ -580,7 +623,6 @@ async def p(ctx, *, url):
         ),
         'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
     }
-    
     ydl_opts = {
         'format': 'bestaudio/best', 
         'quiet': True, 
@@ -589,7 +631,6 @@ async def p(ctx, *, url):
     is_bilibili = "bilibili.com" in url or "b23.tv" in url
     b_audio_url = None
     b_title, b_uploader, b_duration = '❌ 未知歌曲', '❌ 未知來源', 0
-
     if is_bilibili:
         async with ctx.typing():
             try:
@@ -619,8 +660,7 @@ async def p(ctx, *, url):
                                     b_audio_url = p_data['durl'][0].get('url')
             except:
                 pass
-
-    async def silent_play(target_url, current_view):
+    async def silent_play(target_url, current_view, seek_time=0):
         global is_switching
         if not ctx.voice_client: return
         try:
@@ -646,9 +686,12 @@ async def p(ctx, *, url):
                         return ydl.extract_info(target_url, download=False)
                 info = await bot.loop.run_in_executor(None, fetch_info)
                 audio_url = info['entries'][0]['url'] if 'entries' in info else info.get('url')
-                
             if not audio_url: raise Exception("無法提取播放網址")
-            source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **ffmpeg_opts)
+            local_ffmpeg_opts = ffmpeg_opts.copy()
+            if seek_time != 0:
+                local_ffmpeg_opts['options'] += f' -ss {seek_time}'  
+            source = await discord.FFmpegOpusAudio.from_probe(audio_url, executable=ffmpeg_exe, **local_ffmpeg_opts)
+            volume_source = discord.PCMVolumeTransformer(source, volume=current_view.current_volume)
             def loop_after(error):
                 if current_view.manual_stop or is_switching: return
                 if current_view.is_looping and ctx.voice_client:
@@ -656,12 +699,11 @@ async def p(ctx, *, url):
                 else:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
             if ctx.voice_client:
-                ctx.voice_client.play(source, after=loop_after)
+                ctx.voice_client.play(volume_source, after=loop_after)
             is_switching = False
         except:
             is_switching = False
             bot.loop.create_task(play_bgm(ctx))
-
     async with ctx.typing():
         try:
             if is_bilibili and b_audio_url:
@@ -683,8 +725,8 @@ async def p(ctx, *, url):
                 duration = info.get('duration')
                 play_source_url = info['url']
                 view = PlayerControlView(ctx, url, title, duration, uploader)
-                
             source = await discord.FFmpegOpusAudio.from_probe(play_source_url, executable=ffmpeg_exe, **ffmpeg_opts)
+            volume_source = discord.PCMVolumeTransformer(source, volume=view.current_volume)
             def initial_after(error):
                 if view.manual_stop: return
                 if view.is_looping and ctx.voice_client:
@@ -692,7 +734,7 @@ async def p(ctx, *, url):
                 else:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
             if ctx.voice_client:
-                ctx.voice_client.play(source, after=initial_after)
+                ctx.voice_client.play(volume_source, after=initial_after)
             is_switching = False
             await ctx.send(embed=view._get_embed(), view=view)
         except Exception as e:
