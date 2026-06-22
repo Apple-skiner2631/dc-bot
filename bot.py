@@ -478,7 +478,7 @@ FFMPEG_OPTS = {
         '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
         '-headers "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\r\nReferer: https://www.bilibili.com/\r\n"'
     ),
-    'options': '-vn -ar 48000 -ac 2 -b:a 256k -packet_loss 5 -af "volume=0.9" -async 1 -frame_duration 20 -preset veryfast'
+    'options': '-vn -ac 2 -ar 48000 -b:a 256k -packet_loss 5 -preset veryfast'
 }
 
 YDL_OPTS = {
