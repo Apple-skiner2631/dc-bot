@@ -6,5 +6,4 @@ ffmpeg-downloader
 flask
 gunicorn
 psutil
-beautifulsoup4
-requests
+google-genai
