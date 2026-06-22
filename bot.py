@@ -604,7 +604,7 @@ class PlayerControlView(discord.ui.View):
         button.style = discord.ButtonStyle.green if self.is_looping else discord.ButtonStyle.gray
         await interaction.response.edit_message(embed=self._get_embed(), view=self)
 
-@discord.ui.button(label="顯示歌詞", style=discord.ButtonStyle.blurple, emoji="🎤", row=0)
+    @discord.ui.button(label="顯示歌詞", style=discord.ButtonStyle.blurple, emoji="🎤", row=0)
     async def show_lyrics(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         lyrics_text = await bot.loop.run_in_executor(
