@@ -469,7 +469,6 @@ async def dc(ctx):
         except: pass
 
 
-
 bgm_enabled = False
 is_switching = False
 BGM_URL = "https://soundcloud.com/ghostly/c418-haggstrom-1?in=lucas-shearer-913642639/sets/minecraft-soundtrack-disc"
@@ -488,11 +487,11 @@ YDL_OPTS = {
     'noplaylist': True
 }
 
+
 client = genai.Client()
 
 def fetch_lyrics_via_ai(song_title, uploader=""):
     try:
-
         prompt = f"""
         請幫我尋找歌曲《{song_title}》（演唱者/上傳者：{uploader}）的歌詞。
         
@@ -528,6 +527,7 @@ class PlayerControlView(discord.ui.View):
         self.manual_stop = False
         self.current_volume = 1.0
         self.start_time = time.time()
+        self.message = None
 
     def _create_progress_bar(self):
         if not self.duration:
@@ -555,7 +555,7 @@ class PlayerControlView(discord.ui.View):
         return f"`{elapsed_str}` {bar} `{total_str}`"
 
     def _get_embed(self, status="正在播放"):
-        embed = discord.Embed(title=f"🎵 {status}", color=0x3498db)
+        embed = discord.Embed(title=f"🎵 {status}", color=0x3498db if status == "正在播放" else 0x95a5a6)
         embed.add_field(name="🎵 歌名", value=f"[{self.title}]({self.url})", inline=False)
         embed.add_field(name="📤 上傳者", value=self.uploader, inline=True)
         embed.add_field(name="🔊 音量", value=f"{int(self.current_volume * 100)}%", inline=True)
@@ -585,13 +585,10 @@ class PlayerControlView(discord.ui.View):
 
     @discord.ui.button(label="顯示歌詞", style=discord.ButtonStyle.blurple, emoji="🎤", row=0)
     async def show_lyrics(self, interaction: discord.Interaction, button: discord.ui.Button):
-
         await interaction.response.defer(ephemeral=True)
-        
         lyrics_text = await bot.loop.run_in_executor(
             None, fetch_lyrics_via_ai, self.title, self.uploader
         )
-        
         lyric_embed = discord.Embed(title=f"🎤 AI 歌詞庫: {self.title}", description=lyrics_text, color=0xe74c3c)
         await interaction.followup.send(embed=lyric_embed, ephemeral=True)
 
@@ -624,6 +621,9 @@ class PlayerControlView(discord.ui.View):
         if self.ctx.voice_client:
             self.ctx.voice_client.stop()
             await interaction.response.send_message("⏹️ 已停止播放", ephemeral=True)
+            if self.message:
+                try: await self.message.edit(embed=self._get_embed("播放結束"), view=self)
+                except: pass
             await asyncio.sleep(1)
             bot.loop.create_task(play_bgm(self.ctx))
 
@@ -632,6 +632,9 @@ class PlayerControlView(discord.ui.View):
         self.is_looping = False
         self.manual_stop = True
         if self.ctx.voice_client:
+            if self.message:
+                try: await self.message.edit(embed=self._get_embed("播放結束"), view=self)
+                except: pass
             await self.ctx.voice_client.disconnect()
             await interaction.response.send_message("🚪 已斷開連線", ephemeral=True)
 
@@ -663,7 +666,14 @@ async def silent_play(ctx, current_view):
                 current_view.start_time = time.time()
                 bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(ctx, current_view)))
             else:
+
+                if current_view.message:
+                    asyncio.run_coroutine_threadsafe(
+                        current_view.message.edit(embed=current_view._get_embed("播放結束"), view=current_view), 
+                        bot.loop
+                    )
                 bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
+                
         if ctx.voice_client:
             ctx.voice_client.play(volume_source, after=loop_after)
             
@@ -751,15 +761,27 @@ async def p(ctx, *, url):
                     view.start_time = time.time()
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(ctx, view)))
                 else:
+
+                    if view.message:
+                        asyncio.run_coroutine_threadsafe(
+                            view.message.edit(embed=view._get_embed("播放結束"), view=view), 
+                            bot.loop
+                        )
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
+                    
             if ctx.voice_client:
                 ctx.voice_client.play(volume_source, after=initial_after)
             is_switching = False
-            await ctx.send(embed=view._get_embed(), view=view)
+            
+
+            msg = await ctx.send(embed=view._get_embed(), view=view)
+            view.message = msg
+            
         except Exception as e:
             is_switching = False
             await ctx.send(f"❌ 播放失敗: `{str(e)[:100]}`")
             bot.loop.create_task(play_bgm(ctx))
+    
             
 @bot.command(name="stop_music")
 async def stop_music(ctx):
