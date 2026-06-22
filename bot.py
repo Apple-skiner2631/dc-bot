@@ -517,7 +517,6 @@ def fetch_lyrics_via_ai(song_title, uploader=""):
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
-            config={'timeout': 10}  
         )
         if response.text:
             return response.text.strip()[:1800]
