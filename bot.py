@@ -504,17 +504,17 @@ def fetch_lyrics_via_ai(song_title, uploader=""):
         2. 請務必比對「歌手/上傳者」資訊，確保找出來的歌詞是該歌手的版本（避免同名異曲抓錯）。
         
         【嚴格回傳規則】：
-        1. 只需要回傳這首歌的完整歌詞純文字如果歌詞不是簡體或繁體中文,要找到對應的中文歌詞，不要有任何多餘的格式符號,只顯示中文加英文歌詞。
+        1. 只需要回傳這首歌的完整歌詞純文字,要找到對應的中文歌詞，不要有任何多餘的格式符號。
         2. 絕對不要包含任何自我介紹、開頭客套話、結尾問候或解釋（例如「好的，這是歌詞：」等）。
         3. 如果找不到該歌曲的歌詞，請直接回傳「❌ 找不到相關歌詞」這七個字。
-        4. 字數上限請嚴格控制在 4000 字以內，如果歌詞本身超過，請在結尾處做適當的截斷。
+        4. 字數上限請嚴格控制在 1800 字以內，如果歌詞本身超過，請在結尾處做適當的截斷。
         """
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt
         )
         if response.text:
-            return response.text.strip()[:4000]
+            return response.text.strip()[:1800]
     except Exception as e:
         print(f"歌詞獲取失敗: {e}")
     return "❌ 歌詞載入失敗，請稍後再試。"
