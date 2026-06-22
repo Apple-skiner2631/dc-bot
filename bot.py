@@ -490,7 +490,6 @@ YDL_OPTS = {
     'noplaylist': True
 }
 
-# 簡單的免費歌詞爬蟲函數
 def fetch_lyrics(song_title):
     try:
         query = urllib.parse.quote(f"{song_title} lyrics")
@@ -499,16 +498,14 @@ def fetch_lyrics(song_title):
         res = requests.get(url, headers=headers)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, 'html.parser')
-            # 嘗試抓取 Google 搜尋直接提供的歌詞區塊
             lyric_divs = soup.find_all('div', attrs={"data-lyricid": True})
             if lyric_divs:
                 lyrics = []
                 for div in lyric_divs:
                     for s in div.stripped_strings:
                         lyrics.append(s)
-                return "\n".join(lyrics)[:1800] # 限制字數防爆 Embed
+                return "\n".join(lyrics)[:2000]
             
-            # 備用方案：抓取一般描述性文字
             containers = soup.find_all('div', class_='BNeawe iBp4i AP71cc')
             if containers:
                 return "\n".join([c.get_text() for c in containers])[:1800]
@@ -529,32 +526,32 @@ class PlayerControlView(discord.ui.View):
         self.is_looping = True
         self.manual_stop = False
         self.current_volume = 1.0
-        self.start_time = time.time() # 記錄播放起點
+        self.start_time = time.time()
 
     def _create_progress_bar(self):
         if not self.duration:
             return "🔴 ─── 直播或未知長度 ───"
         
-        # 計算經過的時間
+
         vc = self.ctx.voice_client
         if vc and vc.is_paused():
-            # 如果暫停了，進度就停在當下（這裡做精簡計算）
+
             elapsed = int(time.time() - self.start_time)
         else:
             elapsed = int(time.time() - self.start_time)
             
         total = int(self.duration)
         if elapsed > total:
-            elapsed = total # 避免自動循環時秒數爆出去
+            elapsed = total
             
-        # 繪製進度條 (由 15 個格子組成)
+
         bar_length = 15
         progress_position = int((elapsed / total) * bar_length) if total > 0 else 0
         progress_position = min(max(progress_position, 0), bar_length - 1)
         
         bar = "".join(["▬" if i != progress_position else "🔵" for i in range(bar_length)])
         
-        # 格式化時間
+
         elapsed_str = f"{elapsed // 60}:{elapsed % 60:02d}"
         total_str = f"{total // 60}:{total % 60:02d}"
         
@@ -566,7 +563,7 @@ class PlayerControlView(discord.ui.View):
         embed.add_field(name="📤 上傳者", value=self.uploader, inline=True)
         embed.add_field(name="🔊 音量", value=f"{int(self.current_volume * 100)}%", inline=True)
         
-        # 動態將進度條塞入 Embed
+
         embed.add_field(name="⏱️ 播放進度 (點擊下方 🔄 可刷新)", value=self._create_progress_bar(), inline=False)
         
         embed.set_footer(text=f"🔄 自動循環: {'開啟' if self.is_looping else '關閉'}")
@@ -581,7 +578,7 @@ class PlayerControlView(discord.ui.View):
             await interaction.response.edit_message(embed=self._get_embed("已暫停播放"), view=self)
         elif vc.is_paused():
             vc.resume()
-            # 這裡需要稍微校正因暫停落後的時間（精簡處理）
+
             await interaction.response.edit_message(embed=self._get_embed("正在播放"), view=self)
 
     @discord.ui.button(label="重複: 開", style=discord.ButtonStyle.green, emoji="🔁", row=0)
@@ -609,17 +606,15 @@ class PlayerControlView(discord.ui.View):
             vc.source.volume = self.current_volume
         await interaction.response.edit_message(embed=self._get_embed(), view=self)
 
-    # 顯示歌詞按鈕 (設定為 Ephemeral，只有點擊的人看得到，不洗版)
     @discord.ui.button(label="顯示歌詞", style=discord.ButtonStyle.blurple, emoji="🎤", row=1)
     async def show_lyrics(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
-        # 非同步執行爬蟲防卡死
+
         lyrics_text = await bot.loop.run_in_executor(None, fetch_lyrics, self.title)
         
         lyric_embed = discord.Embed(title=f"🎤 歌詞庫: {self.title}", description=lyrics_text, color=0xe74c3c)
         await interaction.followup.send(embed=lyric_embed, ephemeral=True)
 
-    # 刷新面板進度條按鈕
     @discord.ui.button(label="更新進度", style=discord.ButtonStyle.gray, emoji="🔄", row=1)
     async def refresh_panel(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(embed=self._get_embed(), view=self)
@@ -667,7 +662,7 @@ async def silent_play(ctx, current_view):
         def loop_after(error):
             if current_view.manual_stop or is_switching: return
             if current_view.is_looping and ctx.voice_client:
-                # 循環播放時重設時間起點
+
                 current_view.start_time = time.time()
                 bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(ctx, current_view)))
             else:
