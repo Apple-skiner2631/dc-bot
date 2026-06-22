@@ -518,7 +518,7 @@ def fetch_lyrics_via_ai(song_title, uploader="", video_description="", video_tag
         5. 經典版本優先：若該歌曲重名率極高（例如《Stay》、《溫柔》）且無其他線索，請優先提供「最知名、網路上流通度最高、最常被拿來當背景音樂」的那首經典原唱版本。
         
         【嚴格回傳規則】：
-        1. 只需要回傳這首歌的完整歌詞純文字。如果歌詞不是中文（如英文、日文、韓文），請「務必」提供【中外雙語對照歌詞】（原創歌詞在上，中文翻譯在下），方便使用者觀看。
+        1. 只需要回傳這首歌的完整歌詞純文字。如果歌詞不是中文，若可以請務必提供【中外雙語對照歌詞】（原創歌詞在上，中文翻譯在下），方便使用者觀看。
         2. 絕對不要包含任何自我介紹、開頭客套話、結尾問候或解釋（例如「好的，這是歌詞：」等）。
         3. 如果真的找不到該歌曲的歌詞，請直接回傳「❌ 找不到相關歌詞」這七個字。
         4. 字數上限請嚴格控制在 1800 字以內，如果歌詞本身超過，請在結尾處做適當的截斷。
@@ -527,7 +527,6 @@ def fetch_lyrics_via_ai(song_title, uploader="", video_description="", video_tag
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
-            config={'timeout': 20}
         )
         
         if response.text:
@@ -605,13 +604,15 @@ class PlayerControlView(discord.ui.View):
         button.style = discord.ButtonStyle.green if self.is_looping else discord.ButtonStyle.gray
         await interaction.response.edit_message(embed=self._get_embed(), view=self)
 
-    @discord.ui.button(label="顯示歌詞", style=discord.ButtonStyle.blurple, emoji="🎤", row=0)
+   @discord.ui.button(label="顯示歌詞", style=discord.ButtonStyle.blurple, emoji="🎤", row=0)
     async def show_lyrics(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         lyrics_text = await bot.loop.run_in_executor(
-            None, fetch_lyrics_via_ai, self.title, self.uploader
+            None, fetch_lyrics_via_ai, self.title, self.uploader, 
+            getattr(self, 'video_description', ''), getattr(self, 'video_tags', [])
         )
-        lyric_embed = discord.Embed(title=f"🎤 AI 歌詞庫: {self.title}", description=lyrics_text, color=0xe74c3c)
+        
+        lyric_embed = discord.Embed(title=f"🎤 歌詞搜索結果: {self.title}", description=lyrics_text, color=0xe74c3c)
         await interaction.followup.send(embed=lyric_embed, ephemeral=True)
 
     @discord.ui.button(label="音量 +", style=discord.ButtonStyle.gray, emoji="🔊", row=1)
