@@ -494,36 +494,47 @@ YDL_OPTS = {
 
 client = genai.Client()
 
-def fetch_lyrics_via_ai(song_title, uploader=""):
+def fetch_lyrics_via_ai(song_title, uploader="", video_description="", video_tags=None):
+
+    tags_str = ", ".join(video_tags) if video_tags else "無"
+
+    desc_snippet = str(video_description)[:200] if video_description else "無"
+
     try:
         prompt = f"""
-        你現在是一個精準且具備推理能力的音樂歌詞庫。請幫我尋找歌曲的歌詞。
+        你現在是一個精準且具備強大推理能力的 Discord 機器人音樂歌詞庫。請幫我尋找並提供該歌曲的歌詞。
         
-        【原始輸入資訊】：
-        - 影片標題（內含歌名）：{song_title}
-        - 上傳者/歌手欄位：{uploader}
+        【多維度輸入線索】：
+        - 影片標題（內含歌名/台詞）：{song_title}
+        - 影片上傳者（可能是歌手，也可能是搬運號）：{uploader}
+        - 影片簡介片段：{desc_snippet}
+        - 影片標籤（Tags）：{tags_str}
         
-        【搜尋與推理指南】：
-        1. 判斷上傳者屬性：請先檢查「上傳者/歌手欄位」（例如：{uploader}）。如果該名稱看起來像是搬運號、剪輯號、音樂分享帳號（例如名字帶有：鋪、铺、酱、音樂、音乐、剪輯、分享、日常、推歌、Vlog等），代表他「絕對不是」原唱，請在搜尋時完全忽略這個名字，避免被誤導。
-        2. 提取純淨歌名：從標題中過濾掉書名號《》、引號、[Official MV]、"经典神曲" 等所有裝飾性雜訊，提取出真正的核心歌名。
-        3. 智慧推理原唱：如果標題和上傳者都沒有寫出原唱是誰，請根據「核心歌名」搭配標題特徵（例如某首叫該歌名的經典神曲），在你的知識庫中比對最符合、最知名、最常出現在這類分享影片中的原唱歌曲。
+        【思考與精確度補正步驟】：
+        1. 排除搬運號干擾：檢查「上傳者」或「簡介」。如果名稱含有：鋪、铺、酱、音樂、音乐、剪輯、分享、日常、推歌、Vlog、翻唱、Radio、Studio、動漫、AMV等，代表此人「非原唱」。請立刻忽略此名字，並從其他線索尋找原唱。
+        2. 雜訊過濾：從標題中剔除所有非歌曲本身字眼，如 "經典神曲"、"戴上耳機"、"【1080P】"、"[Official MV]"、"抖音爆紅" 等。
+        3. 空耳與歌詞片段推理：若標題看起來根本不像歌名（例如是一整句句子：「錯過不是錯了而是過了」），請將這串字當作「核心歌詞/副歌片段」去你的音樂庫檢索，推導出真正的歌名（例如：劉若英的《後來》）。
+        4. 交叉比對簡介與標籤：很多時候原唱和歌名會藏在「影片簡介」或「影片標籤」裡，請務必將其視為最高優先級的破案線索。
+        5. 經典版本優先：若該歌曲重名率極高（例如《Stay》、《溫柔》）且無其他線索，請優先提供「最知名、網路上流通度最高、最常被拿來當背景音樂」的那首經典原唱版本。
         
         【嚴格回傳規則】：
-        1. 只需要回傳這首歌的完整歌詞純文字。如果歌詞不是簡體或繁體中文，必須找到或翻譯成對應的中文歌詞（如果有英文/日文原創歌詞，可以採用中外雙語對照格式，方便使用者看）。
+        1. 只需要回傳這首歌的完整歌詞純文字。如果歌詞不是中文（如英文、日文、韓文），請「務必」提供【中外雙語對照歌詞】（原創歌詞在上，中文翻譯在下），方便使用者觀看。
         2. 絕對不要包含任何自我介紹、開頭客套話、結尾問候或解釋（例如「好的，這是歌詞：」等）。
-        3. 如果找不到該歌曲的歌詞，請直接回傳「❌ 找不到相關歌詞」這七個字。
+        3. 如果真的找不到該歌曲的歌詞，請直接回傳「❌ 找不到相關歌詞」這七個字。
         4. 字數上限請嚴格控制在 1800 字以內，如果歌詞本身超過，請在結尾處做適當的截斷。
         """
+        
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
+            config={'timeout': 20}
         )
+        
         if response.text:
             return response.text.strip()[:1800]
     except Exception as e:
         print(f"AI 歌詞獲取失敗或超時: {e}")
     return "❌ 歌詞獲取超時或失敗，請稍後再試。"
-
 
 class PlayerControlView(discord.ui.View):
     def __init__(self, ctx, url, audio_url, title, duration, uploader):
@@ -761,7 +772,11 @@ async def p(ctx, *, url):
                 uploader = info.get('uploader', '❌ 未知來源')
                 duration = info.get('duration')
                 play_source_url = info['url']
+                video_description = info.get('description', '')
+                video_tags = info.get('tags', [])
                 view = PlayerControlView(ctx, url, play_source_url, title, duration, uploader)
+                view.video_description = video_description
+                view.video_tags = video_tags
                 
             source = discord.FFmpegPCMAudio(play_source_url, executable=ffmpeg_exe, **FFMPEG_OPTS)
             volume_source = discord.PCMVolumeTransformer(source, volume=view.current_volume)
