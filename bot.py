@@ -20,9 +20,7 @@ import ffmpeg_downloader
 import davey
 import psutil
 import yt_dlp
-import urllib.parse
-from bs4 import BeautifulSoup
-import requests
+from google import genai
 
 if not opus.is_loaded():
     try:
@@ -490,28 +488,31 @@ YDL_OPTS = {
     'noplaylist': True
 }
 
-def fetch_lyrics(song_title):
+client = genai.Client()
+
+def fetch_lyrics_via_ai(song_title, uploader=""):
     try:
-        query = urllib.parse.quote(f"{song_title} lyrics")
-        url = f"https://www.google.com/search?q={query}"
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        res = requests.get(url, headers=headers)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, 'html.parser')
-            lyric_divs = soup.find_all('div', attrs={"data-lyricid": True})
-            if lyric_divs:
-                lyrics = []
-                for div in lyric_divs:
-                    for s in div.stripped_strings:
-                        lyrics.append(s)
-                return "\n".join(lyrics)[:2000]
-            
-            containers = soup.find_all('div', class_='BNeawe iBp4i AP71cc')
-            if containers:
-                return "\n".join([c.get_text() for c in containers])[:1800]
-    except:
-        pass
-    return "❌ 找不到相關歌詞，或是該歌曲沒有文字型歌詞。"
+
+        prompt = f"""
+        請幫我尋找歌曲《{song_title}》（演唱者/上傳者：{uploader}）的歌詞。
+        
+        【嚴格規則】：
+        1. 只需要回傳這首歌的完整歌詞純文字，不要有任何多餘的格式符號。
+        2. 絕對不要包含任何自我介紹、開頭客套話、結尾問候或解釋（例如「好的，這是歌詞：」等）。
+        3. 如果找不到該歌曲的歌詞，請直接回傳「❌ 找不到相關歌詞」這七個字。
+        4. 字數上限請嚴格控制在 1800 字以內，如果歌詞本身超過，請在結尾處做適當的截斷。
+        """
+        
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
+        
+        if response.text:
+            return response.text.strip()[:1800]
+    except Exception as e:
+        print(f"AI 歌詞獲取失敗: {e}")
+    return "❌ 歌詞載入失敗，請稍後再試。"
 
 
 class PlayerControlView(discord.ui.View):
@@ -532,10 +533,8 @@ class PlayerControlView(discord.ui.View):
         if not self.duration:
             return "🔴 ─── 直播或未知長度 ───"
         
-
         vc = self.ctx.voice_client
         if vc and vc.is_paused():
-
             elapsed = int(time.time() - self.start_time)
         else:
             elapsed = int(time.time() - self.start_time)
@@ -544,14 +543,12 @@ class PlayerControlView(discord.ui.View):
         if elapsed > total:
             elapsed = total
             
-
-        bar_length = 15
+        bar_length = 20
         progress_position = int((elapsed / total) * bar_length) if total > 0 else 0
         progress_position = min(max(progress_position, 0), bar_length - 1)
         
         bar = "".join(["▬" if i != progress_position else "🔵" for i in range(bar_length)])
         
-
         elapsed_str = f"{elapsed // 60}:{elapsed % 60:02d}"
         total_str = f"{total // 60}:{total % 60:02d}"
         
@@ -563,7 +560,6 @@ class PlayerControlView(discord.ui.View):
         embed.add_field(name="📤 上傳者", value=self.uploader, inline=True)
         embed.add_field(name="🔊 音量", value=f"{int(self.current_volume * 100)}%", inline=True)
         
-
         embed.add_field(name="⏱️ 播放進度 (點擊下方 🔄 可刷新)", value=self._create_progress_bar(), inline=False)
         
         embed.set_footer(text=f"🔄 自動循環: {'開啟' if self.is_looping else '關閉'}")
@@ -578,7 +574,6 @@ class PlayerControlView(discord.ui.View):
             await interaction.response.edit_message(embed=self._get_embed("已暫停播放"), view=self)
         elif vc.is_paused():
             vc.resume()
-
             await interaction.response.edit_message(embed=self._get_embed("正在播放"), view=self)
 
     @discord.ui.button(label="重複: 開", style=discord.ButtonStyle.green, emoji="🔁", row=0)
@@ -587,6 +582,18 @@ class PlayerControlView(discord.ui.View):
         button.label = f"重複: {'開' if self.is_looping else '關'}"
         button.style = discord.ButtonStyle.green if self.is_looping else discord.ButtonStyle.gray
         await interaction.response.edit_message(embed=self._get_embed(), view=self)
+
+    @discord.ui.button(label="顯示歌詞", style=discord.ButtonStyle.blurple, emoji="🎤", row=0)
+    async def show_lyrics(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        await interaction.response.defer(ephemeral=True)
+        
+        lyrics_text = await bot.loop.run_in_executor(
+            None, fetch_lyrics_via_ai, self.title, self.uploader
+        )
+        
+        lyric_embed = discord.Embed(title=f"🎤 AI 歌詞庫: {self.title}", description=lyrics_text, color=0xe74c3c)
+        await interaction.followup.send(embed=lyric_embed, ephemeral=True)
 
     @discord.ui.button(label="音量 +", style=discord.ButtonStyle.gray, emoji="🔊", row=1)
     async def volume_up(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -605,15 +612,6 @@ class PlayerControlView(discord.ui.View):
         if isinstance(vc.source, discord.PCMVolumeTransformer):
             vc.source.volume = self.current_volume
         await interaction.response.edit_message(embed=self._get_embed(), view=self)
-
-    @discord.ui.button(label="顯示歌詞", style=discord.ButtonStyle.blurple, emoji="🎤", row=1)
-    async def show_lyrics(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer(ephemeral=True)
-
-        lyrics_text = await bot.loop.run_in_executor(None, fetch_lyrics, self.title)
-        
-        lyric_embed = discord.Embed(title=f"🎤 歌詞庫: {self.title}", description=lyrics_text, color=0xe74c3c)
-        await interaction.followup.send(embed=lyric_embed, ephemeral=True)
 
     @discord.ui.button(label="更新進度", style=discord.ButtonStyle.gray, emoji="🔄", row=1)
     async def refresh_panel(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -662,7 +660,6 @@ async def silent_play(ctx, current_view):
         def loop_after(error):
             if current_view.manual_stop or is_switching: return
             if current_view.is_looping and ctx.voice_client:
-
                 current_view.start_time = time.time()
                 bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(ctx, current_view)))
             else:
@@ -751,7 +748,7 @@ async def p(ctx, *, url):
             def initial_after(error):
                 if view.manual_stop: return
                 if view.is_looping and ctx.voice_client:
-                    view.start_time = time.time() # 重新計時進度條
+                    view.start_time = time.time()
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(ctx, view)))
                 else:
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(play_bgm(ctx)))
