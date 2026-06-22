@@ -516,7 +516,7 @@ def fetch_lyrics_via_ai(song_title, uploader=""):
         if response.text:
             return response.text.strip()[:1800]
     except Exception as e:
-        print(f"AI 歌詞獲取失敗: {e}")
+        print(f"歌詞獲取失敗: {e}")
     return "❌ 歌詞載入失敗，請稍後再試。"
 
 class PlayerControlView(discord.ui.View):
@@ -594,7 +594,7 @@ class PlayerControlView(discord.ui.View):
         lyrics_text = await bot.loop.run_in_executor(
             None, fetch_lyrics_via_ai, self.title, self.uploader
         )
-        lyric_embed = discord.Embed(title=f"🎤 AI 歌詞庫: {self.title}", description=lyrics_text, color=0xe74c3c)
+        lyric_embed = discord.Embed(title=f"🎤 搜索歌詞如下: {self.title}  (可能有誤!)", description=lyrics_text, color=0xe74c3c)
         await interaction.followup.send(embed=lyric_embed, ephemeral=True)
 
     @discord.ui.button(label="音量 +", style=discord.ButtonStyle.gray, emoji="🔊", row=1)
