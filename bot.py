@@ -504,7 +504,7 @@ def fetch_lyrics_via_ai(song_title, uploader=""):
         2. 請務必比對「歌手/上傳者」資訊，確保找出來的歌詞是該歌手的版本（避免同名異曲抓錯）。
         
         【嚴格回傳規則】：
-        1. 只需要回傳這首歌的完整歌詞純文字,不要有任何多餘的格式符號。
+        1. 只需要回傳這首歌的完整歌詞純文字如果歌詞不是簡體或繁體中文,要找到對應的中文歌詞，不要有任何多餘的格式符號。
         2. 絕對不要包含任何自我介紹、開頭客套話、結尾問候或解釋（例如「好的，這是歌詞：」等）。
         3. 如果找不到該歌曲的歌詞，請直接回傳「❌ 找不到相關歌詞」這七個字。
         4. 字數上限請嚴格控制在 1800 字以內，如果歌詞本身超過，請在結尾處做適當的截斷。
@@ -516,7 +516,7 @@ def fetch_lyrics_via_ai(song_title, uploader=""):
         if response.text:
             return response.text.strip()[:1800]
     except Exception as e:
-        print(f"歌詞獲取失敗: {e}")
+        print(f"AI 歌詞獲取失敗: {e}")
     return "❌ 歌詞載入失敗，請稍後再試。"
 
 class PlayerControlView(discord.ui.View):
@@ -594,7 +594,7 @@ class PlayerControlView(discord.ui.View):
         lyrics_text = await bot.loop.run_in_executor(
             None, fetch_lyrics_via_ai, self.title, self.uploader
         )
-        lyric_embed = discord.Embed(title=f"🎤 搜索歌詞如下: {self.title}  (可能有誤!)", description=lyrics_text, color=0xe74c3c)
+        lyric_embed = discord.Embed(title=f"🎤 AI 歌詞庫: {self.title}", description=lyrics_text, color=0xe74c3c)
         await interaction.followup.send(embed=lyric_embed, ephemeral=True)
 
     @discord.ui.button(label="音量 +", style=discord.ButtonStyle.gray, emoji="🔊", row=1)
