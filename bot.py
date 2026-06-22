@@ -493,26 +493,31 @@ client = genai.Client()
 def fetch_lyrics_via_ai(song_title, uploader=""):
     try:
         prompt = f"""
-        請幫我尋找歌曲《{song_title}》（演唱者/上傳者：{uploader}）的歌詞。
+        你現在是一個精準的音樂歌詞庫。請幫我尋找歌曲的歌詞。
         
-        【嚴格規則】：
+        【原始輸入資訊】：
+        - 歌名：{song_title}
+        - 歌手/上傳者：{uploader}
+        
+        【搜尋與校正指南】：
+        1. 原始歌名可能包含 "[Official MV]"、"【中英字幕】"、"1080P"、"精選" 等雜訊，請先在腦中將其過濾，提取出「真正的歌名」與「主要歌手」。
+        2. 請務必比對「歌手/上傳者」資訊，確保找出來的歌詞是該歌手的版本（避免同名異曲抓錯）。
+        
+        【嚴格回傳規則】：
         1. 只需要回傳這首歌的完整歌詞純文字，不要有任何多餘的格式符號。
         2. 絕對不要包含任何自我介紹、開頭客套話、結尾問候或解釋（例如「好的，這是歌詞：」等）。
         3. 如果找不到該歌曲的歌詞，請直接回傳「❌ 找不到相關歌詞」這七個字。
         4. 字數上限請嚴格控制在 1800 字以內，如果歌詞本身超過，請在結尾處做適當的截斷。
         """
-        
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt
         )
-        
         if response.text:
             return response.text.strip()[:1800]
     except Exception as e:
         print(f"AI 歌詞獲取失敗: {e}")
     return "❌ 歌詞載入失敗，請稍後再試。"
-
 
 class PlayerControlView(discord.ui.View):
     def __init__(self, ctx, url, audio_url, title, duration, uploader):
