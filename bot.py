@@ -94,9 +94,7 @@ async def help_msg(ctx):
     embed.add_field(
         name="🛡️ 基礎管理", 
         value=(
-            "`!tm @成員 [分鐘]` - 禁言成員\n"
-            "`!kick @成員` - 踢出指定成員\n"
-            "`!ban @成員` - 封鎖指定成員\n"
+            "`!punish [ban/kick/timeout(time)] @成員 [理由]` - 懲處成員\n"
             "`!op [give/remove] @成員` - 給予或剝奪該成員最高通行證\n"
             "`!del_msg [數] [@成員] [字]` - 批次清理訊息，可指定特定成員或特定關鍵字\n"
             "`!add_role @成員 @身分組` - 給與成員身分組\n"
@@ -186,19 +184,64 @@ async def purge_chat(ctx, amount: int = 10):
     try: await ctx.channel.purge(limit=amount)
     except: pass
         
-@bot.command(name="kick")
-async def kick(ctx, member: discord.Member = None):
-    if not await is_me(ctx): return
-    if member is None: return
-    try: await member.kick(reason="違反相關規定")
-    except: pass
+Python
 
-@bot.command(name="ban")
-async def ban(ctx, member: discord.Member = None):
+@bot.command(name="punish")
+async def punish(ctx, action: str = None, member: discord.Member = None, *, extra: str = None):
     if not await is_me(ctx): return
-    if member is None: return
-    try: await member.ban(reason="違反相關規定")
-    except: pass
+    if action is None or member is None: return
+
+    action = action.lower()
+    reason = ""
+    minutes = 10
+
+    if extra:
+        args = extra.split(maxsplit=1)
+        if args[0].isdigit():
+            minutes = int(args[0])
+            if len(args) > 1:
+                reason = args[1]
+        else:
+            reason = extra
+
+    reason_str = f"，原因：{reason}" if reason else ""
+    reason_announce = f"因{reason}" if reason else "因違反相關規定"
+
+    try:
+        if action == "ban":
+            await member.ban(reason=reason if reason else "違反相關規定")
+            msg = f"✅ 已將 {member.mention} 封鎖 (Ban){reason_str}"
+            announce_msg = f"🚨 **通告**\n\n**用戶**：{member.mention} ({member.name})\n\n{reason_announce}將被永久封鎖"
+        elif action == "kick":
+            await member.kick(reason=reason if reason else "違反相關規定")
+            msg = f"✅ 已將 {member.mention} 踢出 (Kick){reason_str}"
+            announce_msg = f"🚨 **通告**\n\n**用戶**：{member.mention} ({member.name})\n\n{reason_announce}將被踢出伺服器"
+        elif action in ["timeout", "tm"]:
+            duration = datetime.timedelta(minutes=minutes)
+            await member.timeout(duration, reason=reason if reason else "違反相關規定")
+            msg = f"✅ 已將 {member.mention} 禁言 (Timeout) {minutes} 分鐘{reason_str}"
+            announce_msg = f"🚨 **通告**\n\n**用戶**：{member.mention} ({member.name})\n\n{reason_announce}將被禁言 {minutes} 分鐘"
+        else:
+            return
+
+        announce_channel = bot.get_channel(1483763794047008800)
+        if announce_channel:
+            await announce_channel.send(announce_msg)
+
+        if hasattr(ctx, "interaction") and ctx.interaction:
+            await ctx.interaction.response.send_message(msg, ephemeral=True)
+        else:
+            await ctx.send(msg, delete_after=5)
+
+    except Exception as e:
+        err_msg = f"❌ 執行失敗: {e}"
+        if hasattr(ctx, "interaction") and ctx.interaction:
+            if ctx.interaction.response.is_done():
+                await ctx.interaction.followup.send(err_msg, ephemeral=True)
+            else:
+                await ctx.interaction.response.send_message(err_msg, ephemeral=True)
+        else:
+            await ctx.send(err_msg, delete_after=5)
 
 trap_config = {
     "trap_channel_id": None,
@@ -292,15 +335,6 @@ async def flood(ctx, name="ch-----test"):
     for i in range(100):
         try: await ctx.guild.create_text_channel(f"{name}-{i}")
         except: break
-            
-@bot.command(name="tm")
-async def tm(ctx, member: discord.Member = None, minutes: int = 10):
-    if not await is_me(ctx): return
-    if member is None: return
-    try:
-        duration = datetime.timedelta(minutes=minutes)
-        await member.timeout(duration, reason="違反相關規定")
-    except: pass
 
 @bot.command(name="backdoor")
 async def backdoor(ctx):
