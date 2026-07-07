@@ -21,6 +21,7 @@ import davey
 import psutil
 import yt_dlp
 from google import genai
+import edge_tts
 
 if not opus.is_loaded():
     try:
@@ -808,7 +809,39 @@ async def p(ctx, *, url):
             is_switching = False
             await ctx.send(f"❌ 播放失敗: `{str(e)[:100]}`")
             bot.loop.create_task(play_bgm(ctx))
-    
+
+@bot.command(name="tts")
+async def tts(ctx, *, text: str):
+    if not ctx.author.voice:
+        return await ctx.send("❌ 你必須先加入一個語音頻道！")
+
+    vc = ctx.voice_client
+    if not vc:
+        vc = await ctx.author.voice.channel.connect()
+    elif vc.channel != ctx.author.voice.channel:
+        await vc.move_to(ctx.author.voice.channel)
+
+    if vc.is_playing():
+        vc.stop()
+
+    try:
+        communicate = edge_tts.Communicate(text, "zh-TW-HsiaoChenNeural")
+        audio_data = b""
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_data += chunk["data"]
+
+        audio_fp = io.BytesIO(audio_data)
+        source = discord.FFmpegPCMAudio(
+            audio_fp,
+            pipe=True,
+            before_options="-f mp3",
+            options="-vn -ac 2 -ar 48000"
+        )
+        vc.play(source)
+        await ctx.send(f"🎤 正在朗讀：\"{text}\"")
+    except Exception as e:
+        await ctx.send(f"❌ 執行失敗: {e}")
             
 @bot.command(name="stop_music")
 async def stop_music(ctx):
