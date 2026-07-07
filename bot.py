@@ -183,8 +183,6 @@ async def purge_chat(ctx, amount: int = 10):
     if not await is_me(ctx): return
     try: await ctx.channel.purge(limit=amount)
     except: pass
-        
-Python
 
 @bot.command(name="punish")
 async def punish(ctx, action: str = None, member: discord.Member = None, *, extra: str = None):
