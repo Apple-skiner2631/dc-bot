@@ -7,3 +7,4 @@ flask
 gunicorn
 psutil
 google-genai
+edge-tts
