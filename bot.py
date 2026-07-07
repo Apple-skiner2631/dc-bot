@@ -812,8 +812,12 @@ async def p(ctx, *, url):
 
 @bot.command(name="tts")
 async def tts(ctx, *, text: str):
+    if not await is_me(ctx): return
     if not ctx.author.voice:
-        return await ctx.send("❌ 你必須先加入一個語音頻道！")
+        if hasattr(ctx, "interaction") and ctx.interaction:
+            return await ctx.interaction.response.send_message("❌ 你必須先加入一個語音頻道！", ephemeral=True)
+        else:
+            return await ctx.send("❌ 你必須先加入一個語音頻道！", delete_after=5)
 
     vc = ctx.voice_client
     if not vc:
@@ -839,9 +843,20 @@ async def tts(ctx, *, text: str):
             options="-vn -ac 2 -ar 48000"
         )
         vc.play(source)
-        await ctx.send(f"🎤 正在朗讀：\"{text}\"")
+
+        if hasattr(ctx, "interaction") and ctx.interaction:
+            await ctx.interaction.response.send_message(f"🎤 正在朗讀：\"{text}\"", ephemeral=True)
+        else:
+            await ctx.send(f"🎤 正在朗讀：\"{text}\"")
     except Exception as e:
-        await ctx.send(f"❌ 執行失敗: {e}")
+        print(f"AI 歌詞獲取失敗或超時: {e}")
+        if hasattr(ctx, "interaction") and ctx.interaction:
+            if ctx.interaction.response.is_done():
+                await ctx.interaction.followup.send(f"❌ 執行失敗: {e}", ephemeral=True)
+            else:
+                await ctx.interaction.response.send_message(f"❌ 執行失敗: {e}", ephemeral=True)
+        else:
+            await ctx.send(f"❌ 執行失敗: {e}", delete_after=5)
             
 @bot.command(name="stop_music")
 async def stop_music(ctx):
