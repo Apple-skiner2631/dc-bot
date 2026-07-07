@@ -209,16 +209,16 @@ async def punish(ctx, action: str = None, member: discord.Member = None, *, extr
         if action == "ban":
             await member.ban(reason=reason if reason else "違反相關規定")
             msg = f"✅ 已將 {member.mention} 封鎖 (Ban){reason_str}"
-            announce_msg = f"🚨 **通告**\n\n**用戶**：{member.mention} ({member.name})\n\n{reason_announce}將被永久封鎖"
+            announce_msg = f"# 🚨 **通告**\n\n> ## 用戶：{member.mention} ({member.name})\n\n{reason_announce}將被永久封鎖"
         elif action == "kick":
             await member.kick(reason=reason if reason else "違反相關規定")
             msg = f"✅ 已將 {member.mention} 踢出 (Kick){reason_str}"
-            announce_msg = f"🚨 **通告**\n\n**用戶**：{member.mention} ({member.name})\n\n{reason_announce}將被踢出伺服器"
+            announce_msg = f"# 🚨 **通告**\n\n> ## 用戶：{member.mention} ({member.name})\n\n{reason_announce}將被踢出伺服器"
         elif action in ["timeout", "tm"]:
             duration = datetime.timedelta(minutes=minutes)
             await member.timeout(duration, reason=reason if reason else "違反相關規定")
             msg = f"✅ 已將 {member.mention} 禁言 (Timeout) {minutes} 分鐘{reason_str}"
-            announce_msg = f"🚨 **通告**\n\n**用戶**：{member.mention} ({member.name})\n\n{reason_announce}將被禁言 {minutes} 分鐘"
+            announce_msg = f"# 🚨 **通告**\n\n> ## 用戶：{member.mention} ({member.name})\n\n{reason_announce}將被禁言 {minutes} 分鐘"
         else:
             return
 
