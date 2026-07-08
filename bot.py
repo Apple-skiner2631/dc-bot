@@ -920,7 +920,6 @@ async def tts(ctx, *, text: str):
         vc.stop()
 
     try:
-        try:
         communicate = edge_tts.Communicate(text, "zh-TW-HsiaoChenNeural")
         audio_data = b""
         async for chunk in communicate.stream():
