@@ -932,10 +932,13 @@ async def tts(ctx, *, text: str):
             if "ffmpeg" in files and root.endswith("/bin"):
                 ffmpeg_path = os.path.join(root, "ffmpeg")
                 break
+        local_ffmpeg = os.path.join(os.getcwd(), "runtime_bin", "ffmpeg")
+        ffmpeg_exe = local_ffmpeg if os.path.exists(local_ffmpeg) else "ffmpeg"
+
         source = discord.FFmpegPCMAudio(
             audio_fp,
             pipe=True,
-            executable="/nix/store/executable/bin/ffmpeg" if os.path.exists("/nix/store/executable/bin/ffmpeg") else "ffmpeg",
+            executable=ffmpeg_exe,
             before_options="-f mp3",
             options="-vn -ac 2 -ar 48000"
         )
