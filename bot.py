@@ -920,6 +920,7 @@ async def tts(ctx, *, text: str):
         vc.stop()
 
     try:
+        try:
         communicate = edge_tts.Communicate(text, "zh-TW-HsiaoChenNeural")
         audio_data = b""
         async for chunk in communicate.stream():
@@ -927,16 +928,9 @@ async def tts(ctx, *, text: str):
                 audio_data += chunk["data"]
 
         audio_fp = io.BytesIO(audio_data)
-        ffmpeg_path = "ffmpeg"
-        for root, dirs, files in os.walk("/nix/store"):
-            if "ffmpeg" in files and root.endswith("/bin"):
-                ffmpeg_path = os.path.join(root, "ffmpeg")
-                break
+        
         local_ffmpeg = os.path.join(os.getcwd(), "runtime_bin", "ffmpeg")
-        if os.path.exists(local_ffmpeg):
-            ffmpeg_exe = local_ffmpeg
-        else:
-            ffmpeg_exe = "ffmpeg"
+        ffmpeg_exe = local_ffmpeg if os.path.exists(local_ffmpeg) else "ffmpeg"
 
         source = discord.FFmpegPCMAudio(
             audio_fp,
@@ -945,22 +939,21 @@ async def tts(ctx, *, text: str):
             before_options="-f mp3",
             options="-vn -ac 2 -ar 48000"
         )
-
+        
         vc.play(source)
 
         if hasattr(ctx, "interaction") and ctx.interaction:
             await ctx.interaction.response.send_message(f"🎤 正在朗讀：\"{text}\"", ephemeral=True)
         else:
             await ctx.send(f"🎤 正在朗讀：\"{text}\"")
+
     except Exception as e:
-        print(f"❌ 執行失敗:  {e}")
+        print(f"❌ TTS 播放發生錯誤: {e}")
+        err_msg = f"❌ 執行失敗: {e}"
         if hasattr(ctx, "interaction") and ctx.interaction:
-            if ctx.interaction.response.is_done():
-                await ctx.interaction.followup.send(f"❌ 執行失敗: {e}", ephemeral=True)
-            else:
-                await ctx.interaction.response.send_message(f"❌ 執行失敗: {e}", ephemeral=True)
+            await ctx.interaction.response.send_message(err_msg, ephemeral=True)
         else:
-            await ctx.send(f"❌ 執行失敗: {e}", delete_after=5)
+            await ctx.send(err_msg, delete_after=5)
             
 @bot.command(name="stop_music")
 async def stop_music(ctx):
