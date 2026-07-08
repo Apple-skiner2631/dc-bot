@@ -894,7 +894,7 @@ async def tts(ctx, *, text: str):
         else:
             await ctx.send(f"🎤 正在朗讀：\"{text}\"")
     except Exception as e:
-        print(f"AI 歌詞獲取失敗或超時: {e}")
+        print(f"❌ 執行失敗:  {e}")
         if hasattr(ctx, "interaction") and ctx.interaction:
             if ctx.interaction.response.is_done():
                 await ctx.interaction.followup.send(f"❌ 執行失敗: {e}", ephemeral=True)
