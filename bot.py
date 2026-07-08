@@ -884,8 +884,8 @@ async def tts(ctx, *, text: str):
         ffmpeg_path = "ffmpeg"
         for root, dirs, files in os.walk("/nix/store"):
             if "ffmpeg" in files and root.endswith("/bin"):
-            ffmpeg_path = os.path.join(root, "ffmpeg")
-            break
+                ffmpeg_path = os.path.join(root, "ffmpeg")
+                break
         source = discord.FFmpegPCMAudio(
             audio_fp,
             pipe=True,
