@@ -933,7 +933,10 @@ async def tts(ctx, *, text: str):
                 ffmpeg_path = os.path.join(root, "ffmpeg")
                 break
         local_ffmpeg = os.path.join(os.getcwd(), "runtime_bin", "ffmpeg")
-        ffmpeg_exe = local_ffmpeg if os.path.exists(local_ffmpeg) else "ffmpeg"
+        if os.path.exists(local_ffmpeg):
+            ffmpeg_exe = local_ffmpeg
+        else:
+            ffmpeg_exe = "ffmpeg"
 
         source = discord.FFmpegPCMAudio(
             audio_fp,
@@ -942,6 +945,7 @@ async def tts(ctx, *, text: str):
             before_options="-f mp3",
             options="-vn -ac 2 -ar 48000"
         )
+
         vc.play(source)
 
         if hasattr(ctx, "interaction") and ctx.interaction:
