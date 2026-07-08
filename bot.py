@@ -18,7 +18,9 @@ from discord.ext import commands
 from flask import Flask
 import ffmpeg_downloader
 import davey
+import urllib.request
 import psutil
+import tarfile
 import yt_dlp
 from google import genai
 import edge_tts
@@ -36,12 +38,25 @@ def force_setup_ffmpeg():
                 return
 
     try:
-        import ffdl
         local_bin = os.path.join(os.getcwd(), "runtime_bin")
         local_ffmpeg = os.path.join(local_bin, "ffmpeg")
         
         if not os.path.exists(local_ffmpeg):
-            ffdl.ffmpeg_download(output_dir=local_bin)
+            os.makedirs(local_bin, exist_ok=True)
+            url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+            archive_path = os.path.join(local_bin, "ffmpeg.tar.xz")
+            
+            urllib.request.urlretrieve(url, archive_path)
+            
+            with tarfile.open(archive_path, "r:xz") as tar:
+                for member in tar.getmembers():
+                    if member.name.endswith("/ffmpeg") and not member.isdir():
+                        member.name = os.path.basename(member.name)
+                        tar.extract(member, path=local_bin)
+                        break
+            
+            if os.path.exists(archive_path):
+                os.remove(archive_path)
             
         if os.name != "nt" and os.path.exists(local_ffmpeg):
             os.chmod(local_ffmpeg, 0o755)
@@ -49,8 +64,9 @@ def force_setup_ffmpeg():
         if local_bin not in os.environ["PATH"]:
             os.environ["PATH"] += os.pathsep + local_bin
     except Exception as e:
-        print(f"FFmpeg 應急配置失敗: {e}")
+        print(f"FFmpeg 內建配置失敗: {e}")
 
+force_setup_ffmpeg()
 force_setup_ffmpeg()
 
 if not opus.is_loaded():
