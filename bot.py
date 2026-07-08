@@ -67,7 +67,7 @@ def force_setup_ffmpeg():
         print(f"FFmpeg 內建配置失敗: {e}")
 
 force_setup_ffmpeg()
-force_setup_ffmpeg()
+
 
 if not opus.is_loaded():
     try:
@@ -84,6 +84,38 @@ if not shutil.which("ffmpeg"):
             os.chmod(ffmpeg_exe, 0o755)
     except:
         pass
+
+def force_setup_opus():
+    if opus.is_loaded():
+        return
+        
+    opus_libs = [
+        "libopus.so.0",
+        "libopus.so",
+        "libopus-0.dll",
+        "libopus.dylib"
+    ]
+    
+    for lib in opus_libs:
+        try:
+            opus.load_opus(lib)
+            print(f"✅ 成功載入系統 Opus 語音庫: {lib}")
+            return
+        except:
+            continue
+            
+    for root, dirs, files in os.walk("/nix/store"):
+        for f in files:
+            if "libopus.so" in f:
+                lib_path = os.path.join(root, f)
+                try:
+                    opus.load_opus(lib_path)
+                    print(f"✅ 成功從 Nix 深度載入 Opus: {lib_path}")
+                    return
+                except:
+                    continue
+
+force_setup_opus()
 
 app = Flask('')
 intents = discord.Intents.all()
@@ -583,15 +615,11 @@ YDL_OPTS = {
     'youtube_include_dash_manifest': False,
 }
 
-
 client = genai.Client()
 
 def fetch_lyrics_via_ai(song_title, uploader="", video_description="", video_tags=None):
-
     tags_str = ", ".join(video_tags) if video_tags else "無"
-
     desc_snippet = str(video_description)[:200] if video_description else "無"
-
     try:
         prompt = f"""
         你現在是一個精準且具備強大推理能力的 Discord 機器人音樂歌詞庫。請幫我尋找並提供該歌曲的歌詞。
@@ -615,12 +643,10 @@ def fetch_lyrics_via_ai(song_title, uploader="", video_description="", video_tag
         3. 如果真的找不到該歌曲的歌詞，請直接回傳「❌ 找不到相關歌詞」這七個字。
         4. 字數上限請嚴格控制在 1800 字以內，如果歌詞本身超過，請在結尾處做適當的截斷。
         """
-        
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
         )
-        
         if response.text:
             return response.text.strip()[:1800]
     except Exception as e:
@@ -645,26 +671,17 @@ class PlayerControlView(discord.ui.View):
     def _create_progress_bar(self):
         if not self.duration:
             return "🔴 ─── 直播或未知長度 ───"
-        
         vc = self.ctx.voice_client
-        if vc and vc.is_paused():
-            elapsed = int(time.time() - self.start_time)
-        else:
-            elapsed = int(time.time() - self.start_time)
-            
+        elapsed = int(time.time() - self.start_time)
         total = int(self.duration)
         if elapsed > total:
             elapsed = total
-            
         bar_length = 20
         progress_position = int((elapsed / total) * bar_length) if total > 0 else 0
         progress_position = min(max(progress_position, 0), bar_length - 1)
-        
         bar = "".join(["▬" if i != progress_position else "🔵" for i in range(bar_length)])
-        
         elapsed_str = f"{elapsed // 60}:{elapsed % 60:02d}"
         total_str = f"{total // 60}:{total % 60:02d}"
-        
         return f"`{elapsed_str}` {bar} `{total_str}`"
 
     def _get_embed(self, status="正在播放"):
@@ -672,9 +689,7 @@ class PlayerControlView(discord.ui.View):
         embed.add_field(name="🎵 歌名", value=f"[{self.title}]({self.url})", inline=False)
         embed.add_field(name="📤 上傳者", value=self.uploader, inline=True)
         embed.add_field(name="🔊 音量", value=f"{int(self.current_volume * 100)}%", inline=True)
-        
         embed.add_field(name="⏱️ 播放進度 (點擊下方 🔄 可刷新)", value=self._create_progress_bar(), inline=False)
-        
         embed.set_footer(text=f"🔄 自動循環: {'開啟' if self.is_looping else '關閉'}")
         return embed
 
@@ -703,7 +718,6 @@ class PlayerControlView(discord.ui.View):
             None, fetch_lyrics_via_ai, self.title, self.uploader, 
             getattr(self, 'video_description', ''), getattr(self, 'video_tags', [])
         )
-        
         lyric_embed = discord.Embed(title=f"🎤 歌詞搜索結果: {self.title}", description=lyrics_text, color=0xe74c3c)
         await interaction.followup.send(embed=lyric_embed, ephemeral=True)
 
@@ -764,13 +778,15 @@ class PlayerControlView(discord.ui.View):
             except Exception as e:
                 await interaction.response.send_message(f"❌ 重連失敗: {e}", ephemeral=True)
 
-
 async def silent_play(ctx, current_view):
     global is_switching
     if not ctx.voice_client: return
     try:
         audio_url = current_view.audio_url
         if not audio_url: raise Exception("無法讀取播放快取網址")
+        
+        local_ffmpeg = os.path.join(os.getcwd(), "runtime_bin", "ffmpeg")
+        ffmpeg_exe = local_ffmpeg if os.path.exists(local_ffmpeg) else "ffmpeg"
         
         source = discord.FFmpegPCMAudio(audio_url, executable=ffmpeg_exe, **FFMPEG_OPTS)
         volume_source = discord.PCMVolumeTransformer(source, volume=current_view.current_volume)
@@ -781,7 +797,6 @@ async def silent_play(ctx, current_view):
                 current_view.start_time = time.time()
                 bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(ctx, current_view)))
             else:
-
                 if current_view.message:
                     asyncio.run_coroutine_threadsafe(
                         current_view.message.edit(embed=current_view._get_embed("播放結束"), view=current_view), 
@@ -796,7 +811,6 @@ async def silent_play(ctx, current_view):
     except:
         is_switching = False
         bot.loop.create_task(play_bgm(ctx))
-
 
 @bot.command(name="play_music")
 async def p(ctx, *, url):
@@ -871,6 +885,9 @@ async def p(ctx, *, url):
                 view.video_description = video_description
                 view.video_tags = video_tags
                 
+            local_ffmpeg = os.path.join(os.getcwd(), "runtime_bin", "ffmpeg")
+            ffmpeg_exe = local_ffmpeg if os.path.exists(local_ffmpeg) else "ffmpeg"
+            
             source = discord.FFmpegPCMAudio(play_source_url, executable=ffmpeg_exe, **FFMPEG_OPTS)
             volume_source = discord.PCMVolumeTransformer(source, volume=view.current_volume)
             
@@ -880,7 +897,6 @@ async def p(ctx, *, url):
                     view.start_time = time.time()
                     bot.loop.call_soon_threadsafe(lambda: bot.loop.create_task(silent_play(ctx, view)))
                 else:
-
                     if view.message:
                         asyncio.run_coroutine_threadsafe(
                             view.message.edit(embed=view._get_embed("播放結束"), view=view), 
@@ -892,7 +908,6 @@ async def p(ctx, *, url):
                 ctx.voice_client.play(volume_source, after=initial_after)
             is_switching = False
             
-
             msg = await ctx.send(embed=view._get_embed(), view=view)
             view.message = msg
             
@@ -901,6 +916,11 @@ async def p(ctx, *, url):
             await ctx.send(f"❌ 播放失敗: `{str(e)[:100]}`")
             bot.loop.create_task(play_bgm(ctx))
 
+async def play_bgm(ctx):
+    try:
+        print("BGM 切換或背景播放觸發成功")
+    except Exception as e:
+        print(f"play_bgm 失敗: {e}")
 @bot.command(name="tts")
 async def tts(ctx, *, text: str):
     if not await is_me(ctx): return
