@@ -884,6 +884,7 @@ async def tts(ctx, *, text: str):
         source = discord.FFmpegPCMAudio(
             audio_fp,
             pipe=True,
+            executable="/nix/store/executable/bin/ffmpeg" if os.path.exists("/nix/store/executable/bin/ffmpeg") else "ffmpeg",
             before_options="-f mp3",
             options="-vn -ac 2 -ar 48000"
         )
