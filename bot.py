@@ -23,6 +23,36 @@ import yt_dlp
 from google import genai
 import edge_tts
 
+def force_setup_ffmpeg():
+    if shutil.which("ffmpeg"):
+        return
+
+    for root, dirs, files in os.walk("/nix/store"):
+        if "ffmpeg" in files and root.endswith("/bin"):
+            ffmpeg_path = os.path.join(root, "ffmpeg")
+            if os.path.exists(ffmpeg_path):
+                if root not in os.environ["PATH"]:
+                    os.environ["PATH"] += os.pathsep + root
+                return
+
+    try:
+        import ffdl
+        local_bin = os.path.join(os.getcwd(), "runtime_bin")
+        local_ffmpeg = os.path.join(local_bin, "ffmpeg")
+        
+        if not os.path.exists(local_ffmpeg):
+            ffdl.ffmpeg_download(output_dir=local_bin)
+            
+        if os.name != "nt" and os.path.exists(local_ffmpeg):
+            os.chmod(local_ffmpeg, 0o755)
+            
+        if local_bin not in os.environ["PATH"]:
+            os.environ["PATH"] += os.pathsep + local_bin
+    except Exception as e:
+        print(f"FFmpeg 應急配置失敗: {e}")
+
+force_setup_ffmpeg()
+
 if not opus.is_loaded():
     try:
         opus.load_opus(davey.opus_path())
