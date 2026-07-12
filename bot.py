@@ -956,16 +956,15 @@ async def tts(ctx, *, text: str):
         else:
             await ctx.send(f"🎤 正在朗讀：\"{text}\"")
 
-
     except Exception as e:
-    import traceback
-    traceback.print_exc()
-    print(f"❌ TTS 播放發生錯誤: {type(e).__name__}: {e}")
-    err_msg = f"❌ 執行失敗: {type(e).__name__}: {e}"
-    if hasattr(ctx, "interaction") and ctx.interaction:
-        await ctx.interaction.response.send_message(err_msg, ephemeral=True)
-    else:
-        await ctx.send(err_msg, delete_after=5)  
+        import traceback
+        traceback.print_exc()
+        print(f"❌ TTS 播放發生錯誤: {type(e).__name__}: {e}")
+        err_msg = f"❌ 執行失敗: {type(e).__name__}: {e}"
+        if hasattr(ctx, "interaction") and ctx.interaction:
+            await ctx.interaction.response.send_message(err_msg, ephemeral=True)
+        else:
+            await ctx.send(err_msg, delete_after=5)
             
 @bot.command(name="stop_music")
 async def stop_music(ctx):
