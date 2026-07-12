@@ -75,16 +75,6 @@ if not opus.is_loaded():
     except:
         pass
 
-ffmpeg_exe = "ffmpeg"
-if not shutil.which("ffmpeg"):
-    try:
-        ffmpeg_downloader.download()
-        ffmpeg_exe = os.path.join(os.getcwd(), "ffmpeg")
-        if os.path.exists(ffmpeg_exe):
-            os.chmod(ffmpeg_exe, 0o755)
-    except:
-        pass
-
 def force_setup_opus():
     if opus.is_loaded():
         return
