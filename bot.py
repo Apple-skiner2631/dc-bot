@@ -176,7 +176,7 @@ async def help_msg(ctx):
         inline=False
     )
     embed.add_field(
-        name="🎵 語音與掛台",
+        name="🎵 語音系統",
         value=(
             "`!join_vc` - 加入你所在的語音頻道\n"
             "`!leave_vc` - 退出語音頻道\n"
