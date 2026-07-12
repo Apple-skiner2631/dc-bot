@@ -78,32 +78,32 @@ if not opus.is_loaded():
 def force_setup_opus():
     if opus.is_loaded():
         return
-        
-    opus_libs = [
-        "libopus.so.0",
-        "libopus.so",
-        "libopus-0.dll",
-        "libopus.dylib"
-    ]
-    
+
+    opus_libs = ["libopus.so.0", "libopus.so", "libopus-0.dll", "libopus.dylib"]
     for lib in opus_libs:
         try:
             opus.load_opus(lib)
             print(f"✅ 成功載入系統 Opus 語音庫: {lib}")
             return
-        except:
-            continue
-            
+        except Exception as e:
+            print(f"⚠️ 嘗試載入 {lib} 失敗: {e}")
+
+    found_any = False
     for root, dirs, files in os.walk("/nix/store"):
         for f in files:
             if "libopus.so" in f:
+                found_any = True
                 lib_path = os.path.join(root, f)
                 try:
                     opus.load_opus(lib_path)
                     print(f"✅ 成功從 Nix 深度載入 Opus: {lib_path}")
                     return
-                except:
-                    continue
+                except Exception as e:
+                    print(f"⚠️ 找到 {lib_path} 但載入失敗: {e}")
+
+    if not found_any:
+        print("❌ 在 /nix/store 中完全沒有找到任何 libopus.so 檔案")
+
 
 force_setup_opus()
 
