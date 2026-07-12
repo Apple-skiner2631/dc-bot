@@ -156,7 +156,7 @@ async def help_msg(ctx):
     
     embed = discord.Embed(
         title="🧳 旅行者系統 - 指令完整手冊", 
-        description=f"實例編號：`{VERSION_ID}`\n此表僅授權人員可見。執行指令後會自動清理痕跡。",
+        description=f"實例編號：`{VERSION_ID}`",
         color=0x2b2d31
     )
     embed.add_field(
