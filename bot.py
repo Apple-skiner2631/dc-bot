@@ -914,7 +914,7 @@ async def play_bgm(ctx):
 
 VOICE_MAP = {
     "tw": "zh-TW-HsiaoChenNeural",  
-    "hk": "zh-HK-HiuMaanNeural",     
+    "hk": "zh-HK-WanLungNeural",     
     "cn": "zh-CN-XiaoxiaoNeural",    
     "jp": "ja-JP-NanamiNeural",     
     "en": "en-US-AriaNeural",     
