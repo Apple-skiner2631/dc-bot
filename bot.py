@@ -911,9 +911,36 @@ async def play_bgm(ctx):
         print("BGM 切換或背景播放觸發成功")
     except Exception as e:
         print(f"play_bgm 失敗: {e}")
+
+VOICE_MAP = {
+    "tw": "zh-TW-HsiaoChenNeural",  
+    "hk": "zh-HK-HiuMaanNeural",     
+    "cn": "zh-CN-XiaoxiaoNeural",    
+    "jp": "ja-JP-NanamiNeural",     
+    "en": "en-US-AriaNeural",     
+}
+
 @bot.command(name="tts")
-async def tts(ctx, *, text: str):
+async def tts(ctx, *, content: str = None):
     if not await is_me(ctx): return
+
+    if not content:
+        return await ctx.send(
+            "⚠️ 請輸入要念的文字，例如：\n"
+            "`!tts 你好嗎` (預設國語)\n"
+            "`!tts hk 你好嗎` (粵語)\n"
+            "可用語言代碼：" + "、".join(VOICE_MAP.keys()),
+            delete_after=10
+        )
+
+    parts = content.split(maxsplit=1)
+    if len(parts) == 2 and parts[0].lower() in VOICE_MAP:
+        voice = VOICE_MAP[parts[0].lower()]
+        text = parts[1]
+    else:
+        voice = VOICE_MAP["tw"]
+        text = content
+
     if not ctx.author.voice:
         if hasattr(ctx, "interaction") and ctx.interaction:
             return await ctx.interaction.response.send_message("❌ 你必須先加入一個語音頻道！", ephemeral=True)
@@ -930,14 +957,14 @@ async def tts(ctx, *, text: str):
         vc.stop()
 
     try:
-        communicate = edge_tts.Communicate(text, "zh-TW-HsiaoChenNeural")
+        communicate = edge_tts.Communicate(text, voice)
         audio_data = b""
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
                 audio_data += chunk["data"]
 
         audio_fp = io.BytesIO(audio_data)
-        
+
         local_ffmpeg = os.path.join(os.getcwd(), "runtime_bin", "ffmpeg")
         ffmpeg_exe = local_ffmpeg if os.path.exists(local_ffmpeg) else "ffmpeg"
 
@@ -948,7 +975,7 @@ async def tts(ctx, *, text: str):
             before_options="-f mp3",
             options="-vn -ac 2 -ar 48000"
         )
-        
+
         vc.play(source)
 
         if hasattr(ctx, "interaction") and ctx.interaction:
